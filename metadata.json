@@ -1,0 +1,6 @@
+{
+  "name": "SIAPIN - Logistics Fleet Monitoring",
+  "description": "SIAPIN - Sistem Informasi Armada, Pemantauan Inspeksi, dan Nilai Kesiapan Transporter dengan sinkronisasi AppSheet REST API, cut-off harian 17:00 WIB, dan pelaporan WhatsApp.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
