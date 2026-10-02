@@ -54,8 +54,9 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
       throw new Error('Gagal mendapatkan token akses dari Google Auth');
     }
 
-    cachedAccessToken = credential.accessToken;
-    return { user: result.user, accessToken: cachedAccessToken };
+    const token = credential.accessToken;
+    cachedAccessToken = token;
+    return { user: result.user, accessToken: token };
   } catch (error: any) {
     console.error('Google Sign in error:', error);
     throw error;

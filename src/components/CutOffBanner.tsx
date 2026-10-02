@@ -17,50 +17,50 @@ export const CutOffBanner: React.FC<CutOffBannerProps> = ({
   isAdmin = false,
 }) => {
   return (
-    <div className="w-full mb-3">
-      {/* Simulation / Info Bar */}
-      <div className="bg-slate-900 text-slate-300 text-xs px-3.5 py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-t-lg">
+    <div className="w-full mb-2">
+      {/* Simulation / Info Bar - Compact & Sleek */}
+      <div className="bg-slate-900 text-slate-300 text-xs px-3 py-1.5 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 rounded-xl border border-slate-800 shadow-xs">
         <div className="flex items-center gap-2 flex-wrap text-xs">
-          <span className="font-mono font-bold text-white bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
-            Waktu Server: {wibClock} WIB
+          <span className="font-mono font-bold text-white bg-slate-800 px-2 py-0.5 rounded border border-slate-700 text-[11px]">
+            {wibClock} WIB
           </span>
-          <span className="text-slate-400 text-xs">
-            (Batas Cut-Off Harian: 17:00 WIB)
+          <span className="text-slate-400 text-[11px]">
+            Cut-Off: 17:00 WIB
           </span>
           <span
-            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+            className={`px-2 py-0.2 rounded-full text-[9px] font-black uppercase tracking-wider ${
               isLocked
-                ? 'bg-red-950 text-red-300 border border-red-700'
-                : 'bg-emerald-950 text-emerald-300 border border-emerald-700'
+                ? 'bg-rose-950 text-rose-300 border border-rose-800/80'
+                : 'bg-emerald-950 text-emerald-300 border border-emerald-800/80'
             }`}
           >
-            {isLocked ? 'STATUS: TERKUNCI' : 'STATUS: TERBUKA'}
+            {isLocked ? '🔒 Terkunci' : '🔓 Terbuka'}
           </span>
         </div>
 
         {/* Admin-only Cut-Off Controller */}
         {isAdmin && (
-          <div className="flex items-center gap-1.5 self-end sm:self-center">
+          <div className="flex items-center gap-1 self-end sm:self-center">
             <span className="text-[10px] text-slate-400 uppercase font-semibold mr-1">
-              Kontrol Cut-Off:
+              Kontrol:
             </span>
             <button
               type="button"
               onClick={() => onModeChange('auto')}
-              className={`px-2 py-1 rounded text-xs font-bold transition cursor-pointer ${
+              className={`px-2 py-0.5 rounded text-[11px] font-bold transition cursor-pointer ${
                 cutOffMode === 'auto'
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-blue-600 text-white shadow-xs'
                   : 'bg-slate-800 text-slate-400 hover:text-slate-200'
               }`}
             >
-              Auto 17:00
+              Auto
             </button>
             <button
               type="button"
               onClick={() => onModeChange('unlocked')}
-              className={`px-2 py-1 rounded text-xs font-bold transition cursor-pointer ${
+              className={`px-2 py-0.5 rounded text-[11px] font-bold transition cursor-pointer ${
                 cutOffMode === 'unlocked'
-                  ? 'bg-emerald-600 text-white'
+                  ? 'bg-emerald-600 text-white shadow-xs'
                   : 'bg-slate-800 text-slate-400 hover:text-slate-200'
               }`}
             >
@@ -69,9 +69,9 @@ export const CutOffBanner: React.FC<CutOffBannerProps> = ({
             <button
               type="button"
               onClick={() => onModeChange('locked')}
-              className={`px-2 py-1 rounded text-xs font-bold transition cursor-pointer ${
+              className={`px-2 py-0.5 rounded text-[11px] font-bold transition cursor-pointer ${
                 cutOffMode === 'locked'
-                  ? 'bg-red-600 text-white'
+                  ? 'bg-red-600 text-white shadow-xs'
                   : 'bg-slate-800 text-slate-400 hover:text-slate-200'
               }`}
             >
@@ -81,19 +81,22 @@ export const CutOffBanner: React.FC<CutOffBannerProps> = ({
         )}
       </div>
 
-      {/* Persistent Warning Banner when Locked */}
+      {/* Persistent Slim Warning Banner when Locked */}
       {isLocked && (
-        <div className="bg-red-50 border border-t-0 border-red-200 px-3.5 py-2.5 rounded-b-lg text-xs text-red-800 flex items-center justify-between gap-2">
-          <div>
-            <strong className="font-bold text-red-900">Perhatian:</strong> Akses pengeditan data telah dikunci karena telah melewati batas cut-off pukul 17:00 WIB. Data saat ini bersifat Read-Only.
+        <div className="bg-slate-900/95 border border-slate-800 mt-1 px-3 py-1.5 rounded-lg text-xs text-slate-300 flex items-center justify-between gap-2 shadow-2xs">
+          <div className="flex items-center gap-2">
+            <span className="text-amber-400 text-xs">🔒</span>
+            <span className="text-[11px] text-slate-300">
+              Pengisian data terkunci karena melewati batas Cut-Off 17:00 WIB (Mode Hanya Baca).
+            </span>
           </div>
           {isAdmin && (
             <button
               type="button"
               onClick={() => onModeChange('unlocked')}
-              className="text-xs font-bold text-red-700 hover:text-red-900 underline shrink-0 cursor-pointer"
+              className="text-[11px] font-bold text-amber-400 hover:text-amber-300 underline shrink-0 cursor-pointer"
             >
-              Buka Kunci Akses
+              Buka Akses
             </button>
           )}
         </div>

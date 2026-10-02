@@ -1,70 +1,49 @@
 import { TruckRecord } from '../types';
+import { getWIBDate } from './timeUtils';
 
 export function generateWhatsAppMessage(
   transporterName: string,
   transporterCode: string,
-  trucks: TruckRecord[]
+  trucks: TruckRecord[],
+  depo?: string
 ): string {
-  // Sort A-Z by namaSopir as requested
-  const sorted = [...trucks].sort((a, b) => {
-    const nameA = (a.namaSopir || '').trim().toLowerCase();
-    const nameB = (b.namaSopir || '').trim().toLowerCase();
-    if (!nameA && !nameB) return a.nomorPolisi.localeCompare(b.nomorPolisi);
-    if (!nameA) return 1;
-    if (!nameB) return -1;
-    return nameA.localeCompare(nameB);
-  });
+  const readyList = trucks.filter((t) => (t.kesiapan || 'Ready') === 'Ready');
+  const tidakReadyList = trucks.filter((t) => t.kesiapan === 'Tidak Ready');
 
-  const readyList = sorted.filter((t) => t.kesiapan === 'Ready');
-  const tidakReadyList = sorted.filter((t) => t.kesiapan === 'Tidak Ready');
+  const now = getWIBDate();
+  const months = [
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+  ];
+  const d = String(now.getDate()).padStart(2, '0');
+  const m = months[now.getMonth()];
+  const y = now.getFullYear();
+  const dateStr = `${d} ${m} ${y}`;
 
-  const now = new Date();
-  const dateStr = now.toLocaleDateString('id-ID', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
-  const timeStr =
-    now.toLocaleTimeString('id-ID', {
-      hour: '2-digit',
-      minute: '2-digit',
-    }) + ' WIB';
+  const transporterInfo = depo && depo !== 'ALL'
+    ? `${transporterCode} (${depo})`
+    : transporterCode;
 
-  let text = `*SIAPIN - KONFIRMASI KESIAPAN ARMADA MD TO DEALER*\n`;
-  text += `*Transporter:* ${transporterName} (${transporterCode})\n`;
-  text += `*Waktu Konfirmasi:* ${dateStr}, ${timeStr}\n\n`;
+  let text = `Tanggal : ${dateStr}\n`;
+  text += `Transporter : ${transporterInfo}\n\n`;
 
-  text += `*RINGKASAN KESIAPAN:*\n`;
-  text += `• Total Armada: ${sorted.length} Unit\n`;
+  text += `RINGKASAN KESIAPAN TRUK :\n`;
+  text += `• Total Armada: ${trucks.length} Unit\n`;
   text += `• Ready: ${readyList.length} Unit\n`;
   text += `• Tidak Ready: ${tidakReadyList.length} Unit\n\n`;
 
-  text += `*DAFTAR UNIT READY (${readyList.length} UNIT):*\n`;
-  if (readyList.length === 0) {
-    text += `-(Tidak ada unit yang berstatus Ready)-\n`;
-  } else {
-    readyList.forEach((t, i) => {
-      const sopir = t.namaSopir ? t.namaSopir : '-';
-      const depo = t.depo ? `[${t.depo}] ` : '';
-      const ket = t.keterangan ? ` [Ket: ${t.keterangan}]` : '';
-      text += `${i + 1}. ${depo}${t.nomorPolisi} | ${sopir} | Kap ${t.kapasitas}${ket}\n`;
-    });
-  }
-
-  text += `\n*DAFTAR UNIT TIDAK READY (${tidakReadyList.length} UNIT):*\n`;
+  text += `DAFTAR TRUK TIDAK READY :\n`;
   if (tidakReadyList.length === 0) {
-    text += `-(Semua unit berstatus Ready)-\n`;
+    text += `-(Semua unit berstatus Ready)-`;
   } else {
     tidakReadyList.forEach((t, i) => {
+      const nopol = t.nomorPolisi || '-';
       const sopir = t.namaSopir ? t.namaSopir : '-';
-      const depo = t.depo ? `[${t.depo}] ` : '';
-      const ket = t.keterangan ? ` [Alasan: ${t.keterangan}]` : ' [Alasan: Tidak Ready]';
-      text += `${i + 1}. ${depo}${t.nomorPolisi} | ${sopir} | Kap ${t.kapasitas}${ket}\n`;
+      const ket = t.keterangan ? t.keterangan : 'Tidak ada keterangan';
+      text += `${i + 1}. ${nopol} | ${sopir} | ${ket}\n`;
     });
   }
 
-  text += `\n_Laporan dikonfirmasi melalui Sistem Kesiapan Armada MD to Dealer._`;
   return text;
 }
 

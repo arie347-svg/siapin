@@ -1,5 +1,6 @@
-import { TruckRecord, UserRecord } from '../types';
+import { TruckRecord, UserRecord, DailyHistoryMap, TruckDailyHistoryEntry, ReadinessStatus, CutOffMode } from '../types';
 import { INITIAL_TRUCKS, INITIAL_USERS } from './mockData';
+import { getWIBDateString } from '../utils/timeUtils';
 
 const STORAGE_KEYS = {
   USERS: 'fleet_users_v1',
@@ -7,7 +8,26 @@ const STORAGE_KEYS = {
   GAS_URL: 'fleet_gas_url_v1',
   CONFIRMED_TIMES: 'fleet_confirmed_times_v1',
   SYNC_MODE: 'fleet_sync_mode_v1', // 'appsheet' | 'gas' | 'local'
+  DAILY_HISTORY: 'fleet_daily_history_v1',
+  LAST_ACTIVE_DATE: 'fleet_last_active_date_v1',
+  CUTOFF_MODE: 'fleet_cutoff_mode_v1',
 };
+
+export function getStoredCutOffMode(): CutOffMode {
+  try {
+    const val = localStorage.getItem(STORAGE_KEYS.CUTOFF_MODE);
+    if (val === 'auto' || val === 'unlocked' || val === 'locked') return val;
+  } catch {}
+  return 'unlocked'; // Default to unlocked so transporter can edit smoothly
+}
+
+export function saveStoredCutOffMode(mode: CutOffMode): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.CUTOFF_MODE, mode);
+  } catch (e) {
+    console.error('Failed to save cutoff mode', e);
+  }
+}
 
 export type SyncMode = 'appsheet' | 'gas' | 'local';
 
@@ -160,9 +180,106 @@ export function getLocalTrucks(): TruckRecord[] {
 export function saveLocalTrucks(trucks: TruckRecord[]): void {
   try {
     localStorage.setItem(STORAGE_KEYS.TRUCKS, JSON.stringify(trucks));
+    // Automatically record today's snapshot
+    const todayStr = getWIBDateString();
+    recordDailySnapshot(todayStr, trucks);
   } catch (e) {
     console.error('Failed to save trucks', e);
   }
+}
+
+export function getStoredDailyHistory(): DailyHistoryMap {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.DAILY_HISTORY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {
+    console.error('Failed to load daily history', e);
+  }
+  return {};
+}
+
+export function saveStoredDailyHistory(history: DailyHistoryMap): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.DAILY_HISTORY, JSON.stringify(history));
+  } catch (e) {
+    console.error('Failed to save daily history', e);
+  }
+}
+
+export function recordDailySnapshot(dateStr: string, trucks: TruckRecord[]): void {
+  try {
+    const history = getStoredDailyHistory();
+    const dayMap: Record<string, TruckDailyHistoryEntry> = history[dateStr] || {};
+    trucks.forEach((t) => {
+      dayMap[t.id] = {
+        kesiapan: t.kesiapan,
+        keterangan: t.keterangan || '',
+        terakhirUpdate: t.terakhirUpdate || '',
+        status: t.status,
+      };
+    });
+    history[dateStr] = dayMap;
+    saveStoredDailyHistory(history);
+  } catch (e) {
+    console.error('Failed to record daily snapshot', e);
+  }
+}
+
+export function checkAndApplyDailyReset(currentTrucks: TruckRecord[]): {
+  trucks: TruckRecord[];
+  didReset: boolean;
+} {
+  const todayStr = getWIBDateString();
+  let lastActiveDate = '';
+  try {
+    lastActiveDate = localStorage.getItem(STORAGE_KEYS.LAST_ACTIVE_DATE) || '';
+  } catch {}
+
+  // If same day, ensure tanggalUpdate is populated
+  if (lastActiveDate === todayStr) {
+    const updated = currentTrucks.map((t) => ({
+      ...t,
+      tanggalUpdate: t.tanggalUpdate || todayStr,
+    }));
+    return { trucks: updated, didReset: false };
+  }
+
+  // If previous day exists, record snapshot for that previous day
+  if (lastActiveDate && lastActiveDate !== todayStr) {
+    recordDailySnapshot(lastActiveDate, currentTrucks);
+  }
+
+  // ATURAN RESET HARIAN:
+  // 1. Status Aktif / Nonaktif: HARUS MANUAL (TIDAK PERNAH DIRESET OTOMATIS)
+  // 2. Kesiapan: DIRESET KE 'Ready' untuk armada Aktif; armada Nonaktif tetap 'Tidak Ready'
+  // 3. Keterangan kendala: DIRESET KE '' (kosong) untuk hari baru
+  // 4. Riwayat Terakhir Update: Ditandai 'Belum update hari ini'
+  const resetTrucks = currentTrucks.map((t) => {
+    const isNonaktif = t.status === 'Nonaktif';
+    return {
+      ...t,
+      status: t.status, // Manual status preserved
+      kesiapan: (isNonaktif ? 'Tidak Ready' : 'Ready') as ReadinessStatus,
+      keterangan: isNonaktif ? t.keterangan : '',
+      terakhirUpdate: 'Belum update hari ini',
+      tanggalUpdate: todayStr,
+    };
+  });
+
+  try {
+    localStorage.setItem(STORAGE_KEYS.LAST_ACTIVE_DATE, todayStr);
+    localStorage.setItem(STORAGE_KEYS.TRUCKS, JSON.stringify(resetTrucks));
+    // Reset confirmation timestamps for new day
+    const emptyTimes: Record<string, string> = { TM: '', RJTM: '', WSS: '', SBR: '' };
+    localStorage.setItem(STORAGE_KEYS.CONFIRMED_TIMES, JSON.stringify(emptyTimes));
+  } catch (e) {
+    console.error('Failed to persist daily reset', e);
+  }
+
+  // Record initial snapshot for today
+  recordDailySnapshot(todayStr, resetTrucks);
+
+  return { trucks: resetTrucks, didReset: true };
 }
 
 export function getStoredGasUrl(): string {

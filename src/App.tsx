@@ -27,12 +27,18 @@ import {
   syncWithAppSheet,
   sendAppSheetAction,
   SyncMode,
+  checkAndApplyDailyReset,
+  getStoredDailyHistory,
+  getStoredCutOffMode,
+  saveStoredCutOffMode,
 } from './services/apiService';
 import { INITIAL_USERS, INITIAL_TRUCKS, TRANSPORTER_NAMES } from './services/mockData';
 import {
   formatWIBDateTime,
   formatWIBTime,
   isPastWIB17Cutoff,
+  getWIBDateString,
+  formatWIBDateIndo,
 } from './utils/timeUtils';
 import {
   generateWhatsAppMessage,
@@ -65,6 +71,19 @@ export default function App() {
     () => getStoredConfirmedTimes()
   );
 
+  // Date selection state: defaults to today's WIB date (YYYY-MM-DD)
+  const [selectedDate, setSelectedDate] = useState<string>(() => getWIBDateString());
+  const isHistoricalView = selectedDate !== getWIBDateString();
+
+  // Startup check: automatic daily reset of readiness status
+  useEffect(() => {
+    const { trucks: refreshed, didReset } = checkAndApplyDailyReset(trucks);
+    if (didReset) {
+      setTrucks(refreshed);
+      showToast('🗓️ Hari baru: Status kesiapan armada telah direset untuk konfirmasi hari ini.', 'info');
+    }
+  }, []);
+
   const handleSetSyncMode = (mode: SyncMode) => {
     setSyncModeState(mode);
     saveStoredSyncMode(mode);
@@ -92,8 +111,12 @@ export default function App() {
   });
   const [unauthorizedCode, setUnauthorizedCode] = useState<string | null>(null);
 
-  // 3. Cut-Off Time & Clock state
-  const [cutOffMode, setCutOffMode] = useState<CutOffMode>('auto');
+  // 3. Cut-Off Time & Clock state (persisted in localStorage)
+  const [cutOffMode, setCutOffModeState] = useState<CutOffMode>(() => getStoredCutOffMode());
+  const setCutOffMode = (mode: CutOffMode) => {
+    setCutOffModeState(mode);
+    saveStoredCutOffMode(mode);
+  };
   const [wibClock, setWibClock] = useState<string>(formatWIBTime());
 
   // 4. Modals and Filter states
@@ -284,16 +307,39 @@ export default function App() {
     showToast('Anda telah keluar dari sesi.', 'info');
   };
 
-  // Determine if editing is locked based on cutOffMode and time
+  // Determine if editing is locked based on cutOffMode, time, and historical archive view
   const isLocked = useMemo(() => {
+    if (isHistoricalView) return true; // Archive view is read-only
     if (cutOffMode === 'locked') return true;
     if (cutOffMode === 'unlocked') return false;
     return isPastWIB17Cutoff();
-  }, [cutOffMode]);
+  }, [cutOffMode, isHistoricalView]);
+
+  // Daily history snapshot for historical viewing
+  const dailyHistory = useMemo(() => getStoredDailyHistory(), [selectedDate, trucks]);
+  const historyForDate = isHistoricalView ? dailyHistory[selectedDate] : null;
+
+  // Effective trucks based on live data vs historical archive
+  const effectiveTrucks = useMemo(() => {
+    if (!isHistoricalView || !historyForDate) return trucks;
+    return trucks.map((t) => {
+      const hist = historyForDate[t.id];
+      if (hist) {
+        return {
+          ...t,
+          kesiapan: hist.kesiapan,
+          keterangan: hist.keterangan,
+          terakhirUpdate: hist.terakhirUpdate,
+          status: hist.status || t.status,
+        };
+      }
+      return t;
+    });
+  }, [trucks, isHistoricalView, historyForDate]);
 
   // Filter trucks based on access control, vendor tab, search, status, and readiness
   const visibleTrucks = useMemo(() => {
-    return trucks.filter((t) => {
+    return effectiveTrucks.filter((t) => {
       // 1. Strict Transporter Access Control (Filter by Transporter AND Depo)
       if (activeUser.role === 'transporter') {
         if (t.transporter !== activeUser.kodeTransporter) {
@@ -611,11 +657,18 @@ export default function App() {
 
     // If Transporter: Automatically open WhatsApp with complete structured breakdown!
     if (activeUser.role === 'transporter') {
-      const targetTrucks = nextTrucks.filter((t) => t.transporter === activeUser.kodeTransporter);
+      const targetTrucks = nextTrucks.filter((t) => {
+        if (t.transporter !== activeUser.kodeTransporter) return false;
+        if (activeUser.depo && (t.depo || 'Karawang').toLowerCase() !== activeUser.depo.toLowerCase()) {
+          return false;
+        }
+        return true;
+      });
       const waText = generateWhatsAppMessage(
         activeUser.namaTransporter,
         activeUser.kodeTransporter,
-        targetTrucks
+        targetTrucks,
+        activeUser.depo
       );
       openWhatsAppWithText(waText);
       showToast('✓ Data berhasil disimpan & diarahkan ke WhatsApp!', 'success');
@@ -764,7 +817,7 @@ export default function App() {
         {isAdmin ? (
           <div className="w-full flex-1 min-h-0 overflow-y-auto px-0 md:px-4 py-0 md:py-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
             <AdminDashboard
-              trucks={trucks}
+              trucks={effectiveTrucks}
               cutOffMode={cutOffMode}
               onCutOffModeChange={setCutOffMode}
               isLocked={isLocked}
@@ -790,6 +843,9 @@ export default function App() {
               onReadinessFilterChange={setReadinessFilter}
               depoFilter={depoFilter}
               onDepoFilterChange={setDepoFilter}
+              selectedDate={selectedDate}
+              onSelectDate={setSelectedDate}
+              isHistoricalView={isHistoricalView}
             />
           </div>
         ) : (
@@ -819,6 +875,8 @@ export default function App() {
                 setDepoFilter('ALL');
               }}
               onOpenAddModal={() => setIsAddModalOpen(true)}
+              operationalDate={selectedDate}
+              lastConfirmedTime={currentLastConfirmed}
             />
           </>
         )}
@@ -1042,6 +1100,8 @@ export default function App() {
                   setSelectedVendorFilter('ALL');
                 }}
                 onOpenAddModal={() => setIsAddModalOpen(true)}
+                operationalDate={selectedDate}
+                lastConfirmedTime={currentLastConfirmed}
               />
             </div>
 

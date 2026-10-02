@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { TruckRecord, TruckStatus, ReadinessStatus, SaveStatus } from '../types';
 import { FloatingBatchFooter } from './FloatingBatchFooter';
 import { EmptyStateTrucks } from './EmptyStateTrucks';
+import { formatWIBDateIndo, isConfirmedToday } from '../utils/timeUtils';
 
 interface TruckInlineTableProps {
   trucks: TruckRecord[];
@@ -20,6 +21,8 @@ interface TruckInlineTableProps {
   selectedVendorFilter?: string;
   onResetFilters?: () => void;
   onOpenAddModal?: () => void;
+  operationalDate?: string;
+  lastConfirmedTime?: string;
 }
 
 interface RowState {
@@ -50,6 +53,8 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
   selectedVendorFilter = 'ALL',
   onResetFilters,
   onOpenAddModal,
+  operationalDate,
+  lastConfirmedTime,
 }) => {
   const [rowStates, setRowStates] = useState<Record<string, RowState>>({});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -395,6 +400,42 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
       {/* ========================================================================= */}
       {!isAdmin ? (
         <div className="bg-white w-full border-y sm:border border-slate-200 overflow-hidden shadow-2xs flex-1 flex flex-col min-h-0">
+          
+          {/* Slim Elegant Locked Notification Bar */}
+          {isLocked && (
+            <div className="bg-slate-900 text-slate-200 text-xs py-1.5 px-3 border-b border-slate-800 flex items-center justify-between shrink-0 shadow-2xs">
+              <div className="flex items-center gap-2">
+                <span className="text-amber-400 text-xs">🔒</span>
+                <span className="font-semibold text-[11px] text-slate-200">
+                  Pengisian Terkunci (Batas Cut-Off 17:00 WIB) — Mode Hanya Baca
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-400 hidden sm:inline">
+                Akses edit dapat dibuka oleh Admin Distribusi
+              </span>
+            </div>
+          )}
+
+          {/* Compact Status Bar (Tanggal Hari Ini & Status Konfirmasi Ringkas) */}
+          <div className="bg-slate-50 border-b border-slate-200 px-3 py-1.5 flex items-center justify-between text-xs shrink-0 select-none">
+            <span className="text-[11px] sm:text-xs font-black text-slate-800 tracking-tight">
+              {formatWIBDateIndo(operationalDate)}
+            </span>
+            <div>
+              {isConfirmedToday(lastConfirmedTime) ? (
+                <span className="inline-flex items-center gap-1 text-[9.5px] font-bold text-emerald-800 bg-emerald-100/90 border border-emerald-300 px-2 py-0.5 rounded-full">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+                  ✓ Terkonfirmasi
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[9.5px] font-extrabold text-amber-900 bg-amber-100/90 border border-amber-300 px-2 py-0.5 rounded-full">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse"></span>
+                  ● Belum Konfirmasi
+                </span>
+              )}
+            </div>
+          </div>
+
           <div className="w-full overflow-y-auto overflow-x-hidden flex-1 max-h-[calc(100dvh-165px)] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
             
             {/* TABEL ARMADA AKTIF (DENGAN KONTROL LENGKAP) */}
@@ -445,7 +486,7 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
                           {index + 1}
                         </td>
 
-                        {/* Nomor Polisi */}
+                        {/* Nomor Polisi & Riwayat Tanggal/Jam Update */}
                         <td className="py-0.5 px-0.5">
                           <input
                             type="text"
@@ -457,6 +498,17 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
                             placeholder="B 1234 XX"
                             className="w-full font-mono font-extrabold text-[9px] sm:text-[11px] px-0.5 py-0.5 rounded border border-transparent hover:border-slate-300 focus:border-red-500 bg-transparent focus:bg-white text-slate-900 focus:outline-hidden transition"
                           />
+                          <div className="flex items-center gap-1 px-0.5 mt-0.2">
+                            {isConfirmedToday(truck.terakhirUpdate) ? (
+                              <span className="text-[7.5px] font-mono font-bold text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200" title={`Riwayat update: ${truck.terakhirUpdate}`}>
+                                ✓ {truck.terakhirUpdate.split(',')[1]?.trim() || truck.terakhirUpdate}
+                              </span>
+                            ) : (
+                              <span className="text-[7.5px] font-mono text-slate-400 bg-slate-100 px-1 py-0.2 rounded" title="Belum diperbarui pada tanggal ini">
+                                Belum update
+                              </span>
+                            )}
+                          </div>
                         </td>
 
                         {/* Nama Sopir */}

@@ -1,7 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { TruckRecord, CutOffMode } from '../types';
 import { TRANSPORTER_NAMES } from '../services/mockData';
-import { isConfirmedToday } from '../utils/timeUtils';
+import { isConfirmedToday, formatWIBDateIndo, getWIBDateString, getYesterdayWIBDateString } from '../utils/timeUtils';
+import { AdminAnalyticsReport } from './AdminAnalyticsReport';
+import { ShareReportModal } from './ShareReportModal';
 
 interface AdminDashboardProps {
   trucks: TruckRecord[];
@@ -30,6 +32,9 @@ interface AdminDashboardProps {
   onReadinessFilterChange?: (r: 'ALL' | 'Ready' | 'Tidak Ready') => void;
   depoFilter?: 'ALL' | 'Karawang' | 'Baros' | 'Cirebon';
   onDepoFilterChange?: (d: 'ALL' | 'Karawang' | 'Baros' | 'Cirebon') => void;
+  selectedDate?: string;
+  onSelectDate?: (dateStr: string) => void;
+  isHistoricalView?: boolean;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -51,9 +56,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   isSyncing = false,
   hasCustomGasUrl = false,
   lastConfirmedTimes = {},
+  selectedDate,
+  onSelectDate,
+  isHistoricalView = false,
 }) => {
   // Mobile Bottom Navigation Tab state
-  const [mobileTab, setMobileTab] = useState<'ringkasan' | 'armada' | 'vendor' | 'kontrol'>('ringkasan');
+  const [mobileTab, setMobileTab] = useState<'ringkasan' | 'armada' | 'vendor' | 'grafik' | 'kontrol'>('ringkasan');
+  const [activeDesktopView, setActiveDesktopView] = useState<'monitoring' | 'grafik'>('monitoring');
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [mobileSearch, setMobileSearch] = useState('');
   const [mobileVendorFilter, setMobileVendorFilter] = useState('ALL');
   const [mobileReadinessFilter, setMobileReadinessFilter] = useState<'ALL' | 'Ready' | 'Tidak Ready'>('ALL');
@@ -69,8 +79,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const tidakReadyCount = activeCount - readyCount;
   const overallPercent = activeCount > 0 ? Math.round((readyCount / activeCount) * 100) : 0;
 
-  // Hitung total tonase kapasitas aktif
-  const totalTonaseAktif = activeTrucks.reduce((sum, t) => sum + (parseInt(t.kapasitas, 10) || 0), 0);
+  // Hitung total kapasitas unit armada aktif
+  const totalKapasitasAktif = activeTrucks.reduce((sum, t) => sum + (parseInt(t.kapasitas, 10) || 0), 0);
 
   // Breakdown 4 Transporter
   const vendorList = ['TM', 'RJTM', 'WSS', 'SBR'];
@@ -188,6 +198,59 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         </div>
 
+        {/* Mobile Date Filter Strip */}
+        <div className="bg-slate-800 text-white px-3 py-2 flex items-center justify-between text-xs border-b border-slate-700 shrink-0">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] uppercase font-bold text-slate-400">📅 Tanggal:</span>
+            <input
+              type="date"
+              value={selectedDate || getWIBDateString()}
+              max={getWIBDateString()}
+              onChange={(e) => onSelectDate?.(e.target.value)}
+              className="bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-xs text-white font-mono cursor-pointer"
+            />
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => onSelectDate?.(getWIBDateString())}
+              className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                !isHistoricalView ? 'bg-red-600 text-white' : 'bg-slate-700 text-slate-300'
+              }`}
+            >
+              Hari Ini
+            </button>
+            <button
+              type="button"
+              onClick={() => onSelectDate?.(getYesterdayWIBDateString())}
+              className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                selectedDate === getYesterdayWIBDateString() ? 'bg-red-600 text-white' : 'bg-slate-700 text-slate-300'
+              }`}
+            >
+              Kemarin
+            </button>
+          </div>
+        </div>
+
+        {/* Historical Archive Banner if viewing past date */}
+        {isHistoricalView && (
+          <div className="mx-3 mt-2.5 bg-amber-50 border border-amber-300 rounded-xl p-2.5 flex items-center justify-between text-xs text-amber-900 shadow-2xs">
+            <div className="flex items-center gap-2">
+              <span className="text-base">📅</span>
+              <span className="font-semibold text-[11px] leading-tight">
+                Arsip: <strong>{formatWIBDateIndo(selectedDate)}</strong> (Hanya Baca)
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => onSelectDate?.(getWIBDateString())}
+              className="px-2 py-1 bg-amber-600 active:bg-amber-700 text-white text-[10px] font-bold rounded cursor-pointer shrink-0"
+            >
+              Ke Hari Ini
+            </button>
+          </div>
+        )}
+
         {/* =================================================================== */}
         {/* MOBILE CONTENT ACCORDING TO ACTIVE BOTTOM TAB                       */}
         {/* =================================================================== */}
@@ -234,6 +297,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               </div>
 
+              {/* Quick Mobile Action Strip: Grafik & Bagikan */}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMobileTab('grafik')}
+                  className="py-2.5 px-3 rounded-xl bg-white border border-slate-200 shadow-2xs font-extrabold text-xs text-slate-800 flex items-center justify-center gap-1.5 active:bg-slate-50 transition cursor-pointer"
+                >
+                  <span className="text-base">📈</span>
+                  <span>Report Grafik</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsShareModalOpen(true)}
+                  className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 active:from-emerald-700 active:to-teal-700 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-sm transition cursor-pointer"
+                >
+                  <span className="text-base">📤</span>
+                  <span>Bagikan File</span>
+                </button>
+              </div>
+
               {/* 4 Metric Cards in 2x2 Grid */}
               <div className="grid grid-cols-2 gap-2.5">
                 <div className="bg-white rounded-xl p-3 border border-slate-200/90 shadow-xs">
@@ -251,11 +334,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                 <div className="bg-white rounded-xl p-3 border border-slate-200/90 shadow-xs">
                   <span className="text-[10px] font-bold uppercase text-slate-500 tracking-wider block">
-                    Tonase Aktif
+                    Kapasitas Aktif
                   </span>
                   <div className="mt-1 flex items-baseline gap-1">
-                    <span className="text-2xl font-black font-mono text-slate-900">{totalTonaseAktif}</span>
-                    <span className="text-[11px] text-slate-500 font-bold">Ton</span>
+                    <span className="text-2xl font-black font-mono text-slate-900">{totalKapasitasAktif}</span>
+                    <span className="text-[11px] text-slate-500 font-bold">Unit</span>
                   </div>
                   <span className="text-[10px] text-slate-400 block mt-0.5">
                     Kapasitas Terangkut
@@ -448,7 +531,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             <div className="text-xs text-slate-600 mt-1 flex items-center gap-2">
                               <span>Sopir: <strong className="text-slate-800">{truck.namaSopir || '-'}</strong></span>
                               <span>•</span>
-                              <span>Kapasitas: <strong className="text-slate-800">{truck.kapasitas} Ton</strong></span>
+                              <span>Kapasitas: <strong className="text-slate-800">{truck.kapasitas} Unit</strong></span>
                             </div>
                           </div>
 
@@ -557,6 +640,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               </div>
 
+            </div>
+          )}
+
+          {/* TAB: GRAFIK & REPORT MODERN (MOBILE) */}
+          {mobileTab === 'grafik' && (
+            <div className="space-y-3 animate-in fade-in duration-150">
+              <AdminAnalyticsReport
+                trucks={trucks}
+                onOpenShareModal={() => setIsShareModalOpen(true)}
+                onSelectVendorFilter={onSelectVendorFilter}
+              />
             </div>
           )}
 
@@ -712,7 +806,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <button
             type="button"
             onClick={() => setMobileTab('vendor')}
-            className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition ${
+            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition ${
               mobileTab === 'vendor'
                 ? 'text-[#E50914] font-black'
                 : 'text-slate-500 font-semibold'
@@ -724,8 +818,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
           <button
             type="button"
+            onClick={() => setMobileTab('grafik')}
+            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition ${
+              mobileTab === 'grafik'
+                ? 'text-[#E50914] font-black'
+                : 'text-slate-500 font-semibold'
+            }`}
+          >
+            <span className="text-base leading-none">📈</span>
+            <span className="text-[10px] mt-0.5">Grafik</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setMobileTab('kontrol')}
-            className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition ${
+            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition ${
               mobileTab === 'kontrol'
                 ? 'text-[#E50914] font-black'
                 : 'text-slate-500 font-semibold'
@@ -745,6 +852,75 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* ========================================================================= */}
       <div className="hidden md:block w-full space-y-3.5 pb-8">
         
+        {/* Desktop Date Filter Bar */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-3.5 shadow-xs flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2.5">
+            <span className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+              <span>📅</span>
+              <span>Tanggal Monitoring Kesiapan:</span>
+            </span>
+            <input
+              type="date"
+              value={selectedDate || getWIBDateString()}
+              max={getWIBDateString()}
+              onChange={(e) => onSelectDate?.(e.target.value)}
+              className="bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-900 font-mono focus:border-red-500 focus:outline-hidden cursor-pointer"
+            />
+            <span className="text-xs font-bold text-slate-800 ml-1">
+              ({formatWIBDateIndo(selectedDate)})
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => onSelectDate?.(getWIBDateString())}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                !isHistoricalView
+                  ? 'bg-red-600 text-white shadow-xs'
+                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+              }`}
+            >
+              Hari Ini (Live)
+            </button>
+            <button
+              type="button"
+              onClick={() => onSelectDate?.(getYesterdayWIBDateString())}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                selectedDate === getYesterdayWIBDateString()
+                  ? 'bg-red-600 text-white shadow-xs'
+                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+              }`}
+            >
+              Kemarin
+            </button>
+          </div>
+        </div>
+
+        {/* Historical Archive Banner if viewing past date */}
+        {isHistoricalView && (
+          <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4 flex items-center justify-between text-amber-900 shadow-xs">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">🗓️</span>
+              <div>
+                <h4 className="text-sm font-extrabold text-amber-900">
+                  Mode Arsip Riwayat Kesiapan: {formatWIBDateIndo(selectedDate)}
+                </h4>
+                <p className="text-xs text-amber-800 mt-0.5">
+                  Anda sedang melihat arsip riwayat performa kesiapan armada pada tanggal ini (Mode Arsip - Hanya Baca).
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => onSelectDate?.(getWIBDateString())}
+              className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-xs rounded-xl shadow-xs cursor-pointer transition"
+            >
+              ← Kembali ke Hari Ini (Live)
+            </button>
+          </div>
+        )}
+
         {/* Status Header AppSheet Desktop */}
         <div className="bg-slate-900 text-white rounded-2xl p-4 sm:p-5 shadow-lg border border-slate-800">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -773,15 +949,53 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             {/* Quick Action Ribbon */}
             <div className="flex items-center gap-2 flex-wrap shrink-0">
+              {/* Desktop View Switcher */}
+              <div className="flex bg-slate-800 p-0.5 rounded-xl border border-slate-700">
+                <button
+                  type="button"
+                  onClick={() => setActiveDesktopView('monitoring')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                    activeDesktopView === 'monitoring'
+                      ? 'bg-slate-700 text-white shadow-xs'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <span>📋</span>
+                  <span>Monitoring Live</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveDesktopView('grafik')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                    activeDesktopView === 'grafik'
+                      ? 'bg-[#E50914] text-white shadow-xs'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <span>📊</span>
+                  <span>Report & Grafik</span>
+                </button>
+              </div>
+
+              {/* Direct Share Button */}
+              <button
+                type="button"
+                onClick={() => setIsShareModalOpen(true)}
+                className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 active:from-emerald-800 active:to-teal-800 text-white font-extrabold text-xs tracking-wide shadow-md transition flex items-center gap-1.5 cursor-pointer border border-emerald-400"
+              >
+                <span>📤</span>
+                <span>BAGIKAN LAPORAN</span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => onOpenFleetModal('ALL')}
-                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 active:bg-red-700 text-white font-extrabold text-xs tracking-wide shadow-md transition flex items-center gap-2 cursor-pointer border border-red-400"
+                className="px-3 py-2 rounded-xl bg-red-600 hover:bg-red-500 active:bg-red-700 text-white font-extrabold text-xs tracking-wide shadow-md transition flex items-center gap-2 cursor-pointer border border-red-400"
               >
                 <svg className="w-4 h-4 fill-none stroke-current" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.3" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
                 </svg>
-                <span>BUKA TABEL ARMADA (KONSOLIDASI)</span>
+                <span>TABEL ARMADA</span>
               </button>
 
               <button
@@ -865,9 +1079,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         </div>
 
-        {/* 2. Tombol Nama Transporter Interaktif */}
-        <div>
-          <div className="flex items-center justify-between mb-2 px-1">
+        {/* 2. KONTEN DESKTOP: REPORT GRAFIK ATAU MONITORING OPERASIONAL */}
+        {activeDesktopView === 'grafik' ? (
+          <AdminAnalyticsReport
+            trucks={trucks}
+            onOpenShareModal={() => setIsShareModalOpen(true)}
+            onSelectVendorFilter={onSelectVendorFilter}
+          />
+        ) : (
+          <>
+            {/* 2. Tombol Nama Transporter Interaktif */}
+            <div>
+              <div className="flex items-center justify-between mb-2 px-1">
             <div>
               <h3 className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
                 <span>🚚 Armada Transporter (Klik untuk Buka Tabel Mengambang)</span>
@@ -998,13 +1221,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
           <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
             <span className="block text-[10px] uppercase font-bold text-slate-500 tracking-wider">
-              Tonase Muatan Aktif
+              Total Kapasitas Aktif
             </span>
             <div className="mt-1 flex items-baseline gap-2">
               <span className="text-2xl sm:text-3xl font-black text-slate-900 font-mono">
-                {totalTonaseAktif}
+                {totalKapasitasAktif}
               </span>
-              <span className="text-xs text-slate-500 font-bold">Ton</span>
+              <span className="text-xs text-slate-500 font-bold">Unit</span>
             </div>
             <span className="block text-xs text-slate-400 mt-1 font-medium">
               Kapasitas MD to Dealer
@@ -1113,7 +1336,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         </div>
 
+          </>
+        )}
+
       </div>
+
+      {/* DIRECT MULTI-FORMAT SHARE MODAL */}
+      <ShareReportModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        trucks={trucks}
+      />
 
     </div>
   );

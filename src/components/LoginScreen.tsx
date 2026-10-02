@@ -12,6 +12,7 @@ const STORAGE_TRANSPORTER_ACCOUNT = 'SIAPIN_TRANSPORTER_REGISTERED_ACCOUNT';
 const STORAGE_ADMIN_SESSION = 'SIAPIN_ADMIN_SESSION';
 const STORAGE_REGISTERED_USERS = 'SIAPIN_REGISTERED_USERS';
 const STORAGE_ADMIN_PASSWORD = 'SIAPIN_ADMIN_CUSTOM_PASSWORD';
+const STORAGE_REMEMBER_ADMIN = 'SIAPIN_REMEMBER_ADMIN_EMAIL';
 
 // Depo availability rules per Vendor
 const VENDOR_DEPO_MAP: Record<TransporterCode, string[]> = {
@@ -139,12 +140,26 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [selectedVendor, setSelectedVendor] = useState<TransporterCode>('TM');
   const [selectedDepo, setSelectedDepo] = useState<string>('Karawang');
 
-  // Admin Login States (EMPTY USERNAME BY DEFAULT - TIDAK DIPERLIHATKAN)
-  const [adminEmail, setAdminEmail] = useState<string>('');
+  // Admin Login States (remember me enabled)
+  const [rememberAdmin, setRememberAdmin] = useState<boolean>(() => {
+    try {
+      return Boolean(localStorage.getItem(STORAGE_REMEMBER_ADMIN));
+    } catch {
+      return false;
+    }
+  });
+  const [adminEmail, setAdminEmail] = useState<string>(() => {
+    try {
+      return localStorage.getItem(STORAGE_REMEMBER_ADMIN) || '';
+    } catch {
+      return '';
+    }
+  });
   const [adminPassword, setAdminPassword] = useState<string>('');
   const [showAdminPassword, setShowAdminPassword] = useState<boolean>(false);
   const [adminError, setAdminError] = useState<string>('');
   const [isAdminSubmitting, setIsAdminSubmitting] = useState(false);
+  const [isInputFocused, setIsInputFocused] = useState(false);
 
   // Strictly transporter registered account (NEVER ADMIN)
   const [registeredTransporter, setRegisteredTransporter] = useState<UserRecord | null>(null);
@@ -313,6 +328,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         try {
           // Save strictly to admin session storage (DOES NOT TOUCH TRANSPORTER STORAGE)
           localStorage.setItem(STORAGE_ADMIN_SESSION, JSON.stringify(adminUser));
+          if (rememberAdmin) {
+            localStorage.setItem(STORAGE_REMEMBER_ADMIN, cleanEmail);
+          } else {
+            localStorage.removeItem(STORAGE_REMEMBER_ADMIN);
+          }
         } catch {}
         setIsAdminSubmitting(false);
         onLogin(adminUser);
@@ -352,24 +372,40 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         {/* =================================================================== */}
         {/* TOP BRAND HEADER: LOGO TRUK LINGKARAN MERAH + SIAPIN               */}
         {/* =================================================================== */}
-        <div className="pt-7 sm:pt-9 px-6 flex flex-col items-center text-center z-20 shrink-0">
-          <div className="w-14 h-14 rounded-full bg-[#E50914] flex items-center justify-center shadow-lg shadow-red-500/25 transform transition-transform hover:scale-105 duration-200">
-            <TruckSystemLogo className="w-8 h-8 text-white" />
+        <div className={`transition-all duration-200 px-6 flex flex-col items-center text-center z-20 shrink-0 ${
+          authMode === 'admin'
+            ? isInputFocused ? 'pt-2 pb-0' : 'pt-3.5 sm:pt-6'
+            : 'pt-7 sm:pt-9'
+        }`}>
+          <div className={`rounded-full bg-[#E50914] flex items-center justify-center shadow-lg shadow-red-500/25 transform transition-all duration-200 ${
+            authMode === 'admin' && isInputFocused
+              ? 'w-8 h-8'
+              : authMode === 'admin'
+              ? 'w-11 h-11 sm:w-14 sm:h-14'
+              : 'w-14 h-14'
+          }`}>
+            <TruckSystemLogo className={`${authMode === 'admin' && isInputFocused ? 'w-4 h-4' : 'w-6 h-6 sm:w-8 h-8'} text-white`} />
           </div>
 
-          <h1 className="mt-2.5 text-2xl font-black tracking-tight text-slate-900 leading-tight">
+          <h1 className={`font-black tracking-tight text-slate-900 leading-tight transition-all duration-200 ${
+            authMode === 'admin' && isInputFocused
+              ? 'mt-1 text-lg'
+              : 'mt-2 text-xl sm:text-2xl'
+          }`}>
             SIAPIN
           </h1>
 
-          <div className="text-[9.5px] sm:text-[10.5px] font-bold text-slate-500 tracking-wider uppercase mt-0.5">
-            MD TO DEALER • TRUCK FLEET SYSTEM
-          </div>
+          {!(authMode === 'admin' && isInputFocused) && (
+            <div className="text-[9.5px] sm:text-[10.5px] font-bold text-slate-500 tracking-wider uppercase mt-0.5">
+              MD TO DEALER • TRUCK FLEET SYSTEM
+            </div>
+          )}
         </div>
 
         {/* =================================================================== */}
-        {/* MIDDLE INTERACTIVE CONTENT AREA                                     */}
+        {/* MIDDLE INTERACTIVE CONTENT AREA (ZERO SCROLL, FITS 100DVH PERFECTLY)*/}
         {/* =================================================================== */}
-        <div className="flex-1 px-5 sm:px-6 py-3 flex flex-col justify-center z-20 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex-1 px-4 sm:px-6 py-2 flex flex-col justify-center z-20 overflow-hidden">
           
           {/* ----------------------------------------------------------------- */}
           {/* 1. MOCKUP SCREEN 1: SELAMAT DATANG (PINTU MASUK UTAMA)             */}
@@ -474,7 +510,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   type="button"
                   onClick={() => {
                     setAdminError('');
-                    setAdminEmail(''); // BERSIH: USERNAME ADMIN TIDAK DIPERLIHATKAN
+                    if (!rememberAdmin) {
+                      setAdminEmail('');
+                    }
                     setAdminPassword('');
                     setAuthMode('admin');
                   }}
@@ -495,7 +533,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           {authMode === 'admin' && (
             <div className="animate-in fade-in zoom-in-95 duration-150 text-left">
               
-              <div className="bg-white rounded-2xl shadow-xl border border-slate-200/90 p-5 space-y-3.5">
+              <div className="bg-white rounded-2xl shadow-xl border border-slate-200/90 p-3.5 sm:p-5 space-y-2 sm:space-y-3">
                 
                 {/* Header Kartu Admin */}
                 <div>
@@ -507,20 +545,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                       Login Admin
                     </h3>
                   </div>
-                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  <p className="text-[11px] sm:text-xs text-slate-500 font-medium mt-0.5">
                     Masuk dengan akun administrator untuk mengakses portal.
                   </p>
                 </div>
 
                 {adminError && (
-                  <div className="p-2.5 bg-red-50 border border-red-200 rounded-lg text-red-700 text-xs font-semibold flex items-center gap-2">
+                  <div className="p-2 sm:p-2.5 bg-red-50 border border-red-200 rounded-lg text-red-700 text-xs font-semibold flex items-center gap-2">
                     <span>⚠️</span>
                     <span>{adminError}</span>
                   </div>
                 )}
 
-                <form onSubmit={handleAdminSubmit} className="space-y-3">
-                  {/* Username Field: TIDAK DIPERLIHATKAN, DEFAULT KOSONG DENGAN PLACEHOLDER STANDAR */}
+                <form onSubmit={handleAdminSubmit} className="space-y-2.5 sm:space-y-3">
+                  {/* Username Field */}
                   <div className="relative">
                     <span className="absolute left-3.5 top-3 text-slate-400">
                       <svg className="w-4 h-4 fill-none stroke-current" viewBox="0 0 24 24">
@@ -532,9 +570,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                       required
                       autoComplete="username"
                       value={adminEmail}
+                      onFocus={() => setIsInputFocused(true)}
+                      onBlur={() => setIsInputFocused(false)}
                       onChange={(e) => setAdminEmail(e.target.value)}
                       placeholder="Username"
-                      className="w-full pl-10 pr-3 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:border-[#E50914] focus:ring-1 focus:ring-[#E50914] focus:outline-hidden transition"
+                      className="w-full pl-10 pr-3 py-2 sm:py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:border-[#E50914] focus:ring-1 focus:ring-[#E50914] focus:outline-hidden transition"
                     />
                   </div>
 
@@ -550,14 +590,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                       required
                       autoComplete="current-password"
                       value={adminPassword}
+                      onFocus={() => setIsInputFocused(true)}
+                      onBlur={() => setIsInputFocused(false)}
                       onChange={(e) => setAdminPassword(e.target.value)}
                       placeholder="Password"
-                      className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:border-[#E50914] focus:ring-1 focus:ring-[#E50914] focus:outline-hidden transition"
+                      className="w-full pl-10 pr-10 py-2 sm:py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:border-[#E50914] focus:ring-1 focus:ring-[#E50914] focus:outline-hidden transition"
                     />
                     <button
                       type="button"
                       onClick={() => setShowAdminPassword(!showAdminPassword)}
-                      className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-700 transition cursor-pointer p-0.5"
+                      className="absolute right-3.5 top-2.5 sm:top-3 text-slate-400 hover:text-slate-700 transition cursor-pointer p-0.5"
                       title={showAdminPassword ? 'Sembunyikan password' : 'Lihat password'}
                     >
                       {showAdminPassword ? (
@@ -566,6 +608,19 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                         <EyeSolidIcon className="w-4 h-4 fill-slate-500 hover:fill-slate-800" />
                       )}
                     </button>
+                  </div>
+
+                  {/* Tombol Remember Me (Ingat Saya) */}
+                  <div className="flex items-center justify-between text-xs py-0.5">
+                    <label className="flex items-center gap-2 cursor-pointer select-none text-slate-600 hover:text-slate-950">
+                      <input
+                        type="checkbox"
+                        checked={rememberAdmin}
+                        onChange={(e) => setRememberAdmin(e.target.checked)}
+                        className="w-4 h-4 rounded border-slate-300 text-[#E50914] focus:ring-[#E50914] cursor-pointer accent-[#E50914]"
+                      />
+                      <span className="text-[11.5px] font-semibold text-slate-700">Ingat Saya (Remember Me)</span>
+                    </label>
                   </div>
 
                   {/* Tombol Login Merah */}
@@ -759,7 +814,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         {/* =================================================================== */}
         {/* BOTTOM SECTION: PADUAN WARNA MERAH MODERN (TANPA FOTO/GAMBAR)       */}
         {/* =================================================================== */}
-        <div className="relative w-full h-36 sm:h-44 overflow-hidden mt-auto shrink-0 select-none bg-gradient-to-br from-[#E50914] via-[#B91C1C] to-[#7F1D1D]">
+        <div className={`relative w-full overflow-hidden select-none bg-gradient-to-br from-[#E50914] via-[#B91C1C] to-[#7F1D1D] transition-all duration-200 ${
+          authMode === 'welcome'
+            ? 'h-32 sm:h-44 mt-auto shrink-0'
+            : 'hidden sm:block sm:h-20 sm:mt-auto sm:shrink-0'
+        }`}>
           
           {/* Subtle Ambient Light Gradients */}
           <div className="absolute -top-12 left-1/4 w-48 h-48 bg-red-400/30 rounded-full blur-2xl pointer-events-none" />

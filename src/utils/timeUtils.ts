@@ -46,3 +46,57 @@ export function isConfirmedToday(timeStr?: string): boolean {
   const year = String(now.getFullYear());
   return timeStr.includes(`${day} ${month}`) && timeStr.includes(year);
 }
+
+/**
+ * Returns YYYY-MM-DD in Asia/Jakarta timezone
+ */
+export function getWIBDateString(date: Date = getWIBDate()): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * Returns yesterday's YYYY-MM-DD in Asia/Jakarta timezone
+ */
+export function getYesterdayWIBDateString(): string {
+  const date = getWIBDate();
+  date.setDate(date.getDate() - 1);
+  return getWIBDateString(date);
+}
+
+/**
+ * Format YYYY-MM-DD to Indonesian day and date, e.g. "Jumat, 02 Oktober 2026"
+ */
+export function formatWIBDateIndo(dateStr?: string): string {
+  let date: Date;
+  if (dateStr && dateStr.includes('-')) {
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      date = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    } else {
+      date = getWIBDate();
+    }
+  } else {
+    date = getWIBDate();
+  }
+
+  const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+  const months = [
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+  ];
+
+  const dayName = days[date.getDay()];
+  const d = String(date.getDate()).padStart(2, '0');
+  const m = months[date.getMonth()];
+  const y = date.getFullYear();
+
+  return `${dayName}, ${d} ${m} ${y}`;
+}
+
+export function isDateToday(dateStr?: string): boolean {
+  if (!dateStr) return false;
+  return dateStr === getWIBDateString();
+}

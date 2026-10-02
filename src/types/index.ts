@@ -20,11 +20,21 @@ export interface TruckRecord {
   nomorPolisi: string; // e.g. 'B 9421 UXT'
   namaSopir: string;
   kapasitas: string; // e.g. '28'
-  status: TruckStatus; // Status armada: Aktif / Nonaktif
-  kesiapan: ReadinessStatus; // Status kesiapan: Ready / Tidak Ready
+  status: TruckStatus; // Status armada: Aktif / Nonaktif (MANUAL ONLY)
+  kesiapan: ReadinessStatus; // Status kesiapan: Ready / Tidak Ready (DIRESET HARIAN)
   keterangan: string; // Catatan/alasan (misal "Bengkel", "Standby", "Siap Jalan")
-  terakhirUpdate: string; // e.g. '2026-09-25 14:30 WIB'
+  terakhirUpdate: string; // e.g. '02 Okt 2026, 14:30 WIB'
+  tanggalUpdate?: string; // e.g. '2026-10-02'
 }
+
+export interface TruckDailyHistoryEntry {
+  kesiapan: ReadinessStatus;
+  keterangan: string;
+  terakhirUpdate: string;
+  status: TruckStatus;
+}
+
+export type DailyHistoryMap = Record<string, Record<string, TruckDailyHistoryEntry>>; // dateStr -> truckId/nopol -> entry
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
