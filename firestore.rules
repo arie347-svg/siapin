@@ -1,0 +1,19 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Daily snapshots of truck fleet readiness
+    match /daily_snapshots/{date} {
+      allow read, write: if true;
+    }
+    
+    // System test and metadata
+    match /system_test/{docId} {
+      allow read, write: if true;
+    }
+    
+    // Default fallback
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

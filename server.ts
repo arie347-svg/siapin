@@ -3,11 +3,34 @@ import type { Request, Response } from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Database Directory for Persistent Daily Snapshots
+const SNAPSHOTS_DIR = path.join(__dirname, 'data', 'snapshots');
+if (!fs.existsSync(SNAPSHOTS_DIR)) {
+  fs.mkdirSync(SNAPSHOTS_DIR, { recursive: true });
+}
+
+// Cloud Firestore Database Instance for Cloud Daily Snapshots
+let firestoreDb: any = null;
+try {
+  const firebaseConfigPath = path.join(__dirname, 'firebase-applet-config.json');
+  if (fs.existsSync(firebaseConfigPath)) {
+    const firebaseConfig = JSON.parse(fs.readFileSync(firebaseConfigPath, 'utf-8'));
+    const { initializeApp: initFirebaseApp, getApps: getFirebaseApps } = await import('firebase/app');
+    const { getFirestore: initFirestore } = await import('firebase/firestore');
+    const fbApp = getFirebaseApps().length === 0 ? initFirebaseApp(firebaseConfig) : getFirebaseApps()[0];
+    firestoreDb = initFirestore(fbApp, firebaseConfig.firestoreDatabaseId || undefined);
+    console.log('Cloud Firestore initialized for daily snapshots archive');
+  }
+} catch (err: any) {
+  console.warn('Firestore initial connection note:', err.message);
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -389,6 +412,12 @@ app.get('/api/appsheet/trucks', async (req: Request, res: Response) => {
     });
 
     res.json({ success: true, trucks, total: trucks.length, tableName: currentTableName });
+
+    // Non-blocking background archive to daily snapshot database
+    if (trucks.length > 0) {
+      const todayStr = new Date().toLocaleDateString('en-CA');
+      saveDailySnapshotInternal(todayStr, trucks).catch(() => {});
+    }
   } catch (err: any) {
     const isApiDisabled = Boolean(err.message?.includes('The API is not enabled'));
     const isTableNotFound = Boolean(err.message?.includes('was not found'));
@@ -440,6 +469,10 @@ app.post('/api/appsheet/update-truck', async (req: Request, res: Response) => {
       syncDriverToDataTruk2(formattedSopir, truck.namaSopir, truck.transporter, truck.status || 'Aktif').catch(() => {});
     }
 
+    // Update today's database snapshot archive
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    saveDailySnapshotInternal(todayStr, [truck]).catch(() => {});
+
     res.json({ success: true, result, tableName: 'MD to Dealer 2' });
   } catch (err: any) {
     res.json({
@@ -485,6 +518,10 @@ app.post('/api/appsheet/add-truck', async (req: Request, res: Response) => {
     if (formattedSopir) {
       syncDriverToDataTruk2(formattedSopir, truck.namaSopir, truck.transporter, truck.status || 'Aktif').catch(() => {});
     }
+
+    // Update today's database snapshot archive
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    saveDailySnapshotInternal(todayStr, [truck]).catch(() => {});
 
     res.json({ success: true, result, tableName: 'MD to Dealer 2' });
   } catch (err: any) {
@@ -560,10 +597,13 @@ app.post('/api/appsheet/confirm-all', async (req: Request, res: Response) => {
     // Respond immediately to client so UI loading completes in ~500ms
     res.json({ success: true, result, count: rowsToEdit.length, tableName: 'MD to Dealer 2' });
 
-    // Non-blocking background batch sync for Data Truk 2 (1 single batch call instead of N calls!)
+    // Non-blocking background batch sync for Data Truk 2 & daily snapshot database archive
     batchSyncDriversToDataTruk2(trucks).catch((err) => {
       console.warn('Background batch sync Data Truk 2 notice:', err.message);
     });
+
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    saveDailySnapshotInternal(todayStr, trucks);
   } catch (err: any) {
     res.json({
       success: false,
@@ -671,6 +711,224 @@ app.post('/api/appsheet/sync-master-drivers', async (_req: Request, res: Respons
       success: false,
       message: err.message,
     });
+  }
+});
+
+// 8. Snapshot Database Management (Daily Archiving & Downloads)
+async function saveDailySnapshotInternal(dateStr: string, trucks: any[]) {
+  try {
+    const filePath = path.join(SNAPSHOTS_DIR, `${dateStr}.json`);
+    let existingTrucks: any[] = [];
+    if (fs.existsSync(filePath)) {
+      try {
+        const prev = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+        if (Array.isArray(prev.trucks)) existingTrucks = prev.trucks;
+      } catch {}
+    }
+
+    const mergedMap = new Map<string, any>();
+    existingTrucks.forEach((t) => mergedMap.set(t.id || t.nomorPolisi, t));
+    trucks.forEach((t) => mergedMap.set(t.id || t.nomorPolisi, t));
+    const mergedList = Array.from(mergedMap.values());
+
+    const summary = {
+      total: mergedList.length,
+      ready: mergedList.filter((t) => t.kesiapan === 'Ready').length,
+      tidakReady: mergedList.filter((t) => t.kesiapan === 'Tidak Ready').length,
+      aktif: mergedList.filter((t) => t.status === 'Aktif').length,
+      nonaktif: mergedList.filter((t) => t.status === 'Nonaktif').length,
+    };
+
+    const data = {
+      date: dateStr,
+      savedAt: new Date().toISOString(),
+      summary,
+      trucks: mergedList,
+    };
+
+    // Save to local server database storage
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+
+    // Dual-archive to Cloud Firestore
+    if (firestoreDb) {
+      try {
+        const { doc, setDoc } = await import('firebase/firestore');
+        const ref = doc(firestoreDb, 'daily_snapshots', dateStr);
+        await setDoc(ref, {
+          date: dateStr,
+          savedAt: data.savedAt,
+          summary,
+          trucks: mergedList,
+        }, { merge: true });
+      } catch (fErr: any) {
+        console.warn('Firestore snapshot background sync note:', fErr.message);
+      }
+    }
+  } catch (err: any) {
+    console.warn('Snapshot internal note:', err.message);
+  }
+}
+
+// Save or update snapshot in database
+app.post('/api/snapshots', async (req: Request, res: Response) => {
+  try {
+    const { date, trucks } = req.body;
+    if (!date || !Array.isArray(trucks)) {
+      return res.status(400).json({ success: false, message: 'Invalid snapshot payload' });
+    }
+    await saveDailySnapshotInternal(date, trucks);
+    res.json({ success: true, message: `Snapshot ${date} berhasil disimpan di database`, date });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Get all available snapshot dates
+app.get('/api/snapshots', async (_req: Request, res: Response) => {
+  try {
+    const files = fs.existsSync(SNAPSHOTS_DIR) ? fs.readdirSync(SNAPSHOTS_DIR).filter((f) => f.endsWith('.json')) : [];
+    const snapshots: Record<string, any> = {};
+    const datesSet = new Set<string>();
+
+    files.forEach((f) => {
+      const date = f.replace('.json', '');
+      datesSet.add(date);
+      try {
+        const raw = JSON.parse(fs.readFileSync(path.join(SNAPSHOTS_DIR, f), 'utf-8'));
+        snapshots[date] = {
+          date,
+          savedAt: raw.savedAt,
+          summary: raw.summary,
+          count: raw.trucks?.length || 0,
+        };
+      } catch {}
+    });
+
+    // Check Cloud Firestore for any additional dates
+    if (firestoreDb) {
+      try {
+        const { collection, getDocs } = await import('firebase/firestore');
+        const querySnap = await getDocs(collection(firestoreDb, 'daily_snapshots'));
+        querySnap.forEach((docSnap) => {
+          const d = docSnap.id;
+          if (!snapshots[d]) {
+            const data = docSnap.data();
+            datesSet.add(d);
+            snapshots[d] = {
+              date: d,
+              savedAt: data.savedAt,
+              summary: data.summary,
+              count: data.trucks?.length || 0,
+            };
+          }
+        });
+      } catch {}
+    }
+
+    // Filter only valid YYYY-MM-DD date strings
+    const dates = Array.from(datesSet)
+      .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d))
+      .sort()
+      .reverse();
+    res.json({ success: true, dates, snapshots });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Get snapshot details for a specific date
+app.get('/api/snapshots/:date', async (req: Request, res: Response) => {
+  try {
+    const { date } = req.params;
+    const filePath = path.join(SNAPSHOTS_DIR, `${date}.json`);
+    if (fs.existsSync(filePath)) {
+      const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+      return res.json({ success: true, ...data });
+    }
+
+    // Fallback to Firestore
+    if (firestoreDb) {
+      try {
+        const { doc, getDoc } = await import('firebase/firestore');
+        const docSnap = await getDoc(doc(firestoreDb, 'daily_snapshots', date));
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+          return res.json({ success: true, ...data });
+        }
+      } catch {}
+    }
+
+    res.json({ success: false, message: `Snapshot untuk tanggal ${date} belum tersedia di database` });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Download snapshot CSV for a specific date
+app.get('/api/snapshots/download/:date', async (req: Request, res: Response) => {
+  try {
+    const { date } = req.params;
+    const filePath = path.join(SNAPSHOTS_DIR, `${date}.json`);
+    let snapshot: any = null;
+
+    if (fs.existsSync(filePath)) {
+      try {
+        snapshot = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+      } catch {}
+    }
+
+    if (!snapshot && firestoreDb) {
+      try {
+        const { doc, getDoc } = await import('firebase/firestore');
+        const docSnap = await getDoc(doc(firestoreDb, 'daily_snapshots', date));
+        if (docSnap.exists()) {
+          snapshot = docSnap.data();
+          fs.writeFileSync(filePath, JSON.stringify(snapshot, null, 2), 'utf-8');
+        }
+      } catch {}
+    }
+
+    if (!snapshot) {
+      return res.status(404).send('Snapshot tidak ditemukan di database');
+    }
+
+    const trucks = snapshot.trucks || [];
+
+    const headers = [
+      'No',
+      'Tanggal Laporan',
+      'Transporter',
+      'Depo (Lokasi Audit)',
+      'Nomor Polisi',
+      'Nama Sopir',
+      'Kapasitas (Unit)',
+      'Status Operasional',
+      'Kesiapan Armada',
+      'Keterangan Kendala',
+      'Terakhir Update',
+    ];
+
+    const rows = trucks.map((t: any, idx: number) => [
+      idx + 1,
+      date,
+      t.transporter || '',
+      t.depo || 'Karawang',
+      t.nomorPolisi || '',
+      `"${(t.namaSopir || '-').replace(/"/g, '""')}"`,
+      t.kapasitas || '28',
+      t.status || 'Aktif',
+      t.kesiapan || 'Ready',
+      `"${(t.keterangan || '').replace(/"/g, '""')}"`,
+      `"${(t.terakhirUpdate || '').replace(/"/g, '""')}"`,
+    ]);
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r: any[]) => r.join(','))].join('\r\n');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="Rekap_Armada_SIAPIN_${date}.csv"`);
+    res.send(csvContent);
+  } catch (err: any) {
+    res.status(500).send(err.message);
   }
 });
 

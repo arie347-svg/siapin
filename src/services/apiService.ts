@@ -243,9 +243,76 @@ export function recordDailySnapshot(dateStr: string, trucks: TruckRecord[]): voi
     });
     history[dateStr] = dayMap;
     saveStoredDailyHistory(history);
+
+    // Also persist permanently to Database Cloud/Server
+    saveSnapshotToDatabase(dateStr, trucks).catch(() => {});
   } catch (e) {
     console.error('Failed to record daily snapshot', e);
   }
+}
+
+export async function saveSnapshotToDatabase(dateStr: string, trucks: TruckRecord[]): Promise<boolean> {
+  try {
+    const res = await fetch('/api/snapshots', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: dateStr, trucks }),
+    });
+    const data = await res.json();
+    return Boolean(data.success);
+  } catch (err) {
+    console.warn('Failed to save snapshot to database:', err);
+    return false;
+  }
+}
+
+export async function fetchSnapshotFromDatabase(dateStr: string): Promise<{ success: boolean; trucks?: TruckRecord[]; summary?: any }> {
+  try {
+    const res = await fetch(`/api/snapshots/${dateStr}`);
+    const data = await res.json();
+    return data;
+  } catch (err) {
+    console.warn('Failed to fetch snapshot from database:', err);
+    return { success: false };
+  }
+}
+
+export async function fetchAvailableSnapshotDates(): Promise<string[]> {
+  try {
+    const res = await fetch('/api/snapshots');
+    const data = await res.json();
+    return Array.isArray(data.dates) ? data.dates : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchAllDatabaseSnapshots(): Promise<{
+  dates: string[];
+  snapshots: Record<string, { date: string; savedAt: string; count: number; summary?: any }>;
+}> {
+  try {
+    const res = await fetch('/api/snapshots');
+    const data = await res.json();
+    if (data && data.success) {
+      return {
+        dates: Array.isArray(data.dates) ? data.dates : [],
+        snapshots: data.snapshots || {},
+      };
+    }
+  } catch (err) {
+    console.warn('Failed to fetch snapshot list from database:', err);
+  }
+  return { dates: [], snapshots: {} };
+}
+
+export function downloadDateSnapshotCsv(dateStr: string): void {
+  const a = document.createElement('a');
+  a.href = `/api/snapshots/download/${dateStr}`;
+  a.download = `Rekap_Armada_SIAPIN_${dateStr}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }
 
 export function checkAndApplyDailyReset(currentTrucks: TruckRecord[]): {
@@ -272,18 +339,21 @@ export function checkAndApplyDailyReset(currentTrucks: TruckRecord[]): {
     recordDailySnapshot(lastActiveDate, currentTrucks);
   }
 
-  // ATURAN RESET HARIAN:
-  // 1. Status Aktif / Nonaktif: HARUS MANUAL (TIDAK PERNAH DIRESET OTOMATIS)
-  // 2. Kesiapan: DIRESET KE 'Ready' untuk armada Aktif; armada Nonaktif tetap 'Tidak Ready'
-  // 3. Keterangan kendala: DIRESET KE '' (kosong) untuk hari baru
-  // 4. Riwayat Terakhir Update: Ditandai 'Belum update hari ini'
+  // ATURAN RETENSI PERSISTEN HARIAN (PERMINTAAN USER):
+  // 1. Status Aktif / Nonaktif: Tetap persisten antar-hari (tidak pernah direset otomatis)
+  // 2. Kesiapan Ready / Tidak Ready: Tetap persisten antar-hari!
+  //    - Truk yang Tidak Ready (misal rusak/bengkel) TETAP 'Tidak Ready' beserta keterangannya sampai diubah manual oleh transporter.
+  //    - Truk yang Nonaktif TETAP 'Tidak Ready'.
+  //    - Truk yang Ready TETAP 'Ready'.
+  // 3. Riwayat Terakhir Update: Ditandai 'Belum update hari ini' agar jelas unit mana yang belum dikonfirmasi hari ini.
   const resetTrucks = currentTrucks.map((t) => {
     const isNonaktif = t.status === 'Nonaktif';
+    const effectiveKesiapan = isNonaktif ? 'Tidak Ready' : (t.kesiapan || 'Ready');
     return {
       ...t,
       status: t.status, // Manual status preserved
-      kesiapan: (isNonaktif ? 'Tidak Ready' : 'Ready') as ReadinessStatus,
-      keterangan: isNonaktif ? t.keterangan : '',
+      kesiapan: effectiveKesiapan as ReadinessStatus, // Retain readiness across days
+      keterangan: effectiveKesiapan === 'Ready' ? '' : (t.keterangan || ''), // Retain keterangan if Tidak Ready
       terakhirUpdate: 'Belum update hari ini',
       tanggalUpdate: todayStr,
     };

@@ -31,6 +31,9 @@ import {
   getStoredDailyHistory,
   getStoredCutOffMode,
   saveStoredCutOffMode,
+  saveSnapshotToDatabase,
+  fetchSnapshotFromDatabase,
+  downloadDateSnapshotCsv,
 } from './services/apiService';
 import { INITIAL_USERS, INITIAL_TRUCKS, TRANSPORTER_NAMES } from './services/mockData';
 import {
@@ -164,6 +167,9 @@ export default function App() {
     title: string;
     subtitle: string;
   } | null>(null);
+
+  // Database Persistent Historical Trucks Cache by Date
+  const [dbHistoricalTrucks, setDbHistoricalTrucks] = useState<Record<string, TruckRecord[]>>({});
 
   // Add ESC key listener for floating fleet modal
   useEffect(() => {
@@ -327,23 +333,62 @@ export default function App() {
   const dailyHistory = useMemo(() => getStoredDailyHistory(), [selectedDate, trucks]);
   const historyForDate = isHistoricalView ? dailyHistory[selectedDate] : null;
 
-  // Effective trucks based on live data vs historical archive
+  // Load historical snapshot directly from server database when viewing past date
+  useEffect(() => {
+    if (isHistoricalView && selectedDate && !dbHistoricalTrucks[selectedDate]) {
+      fetchSnapshotFromDatabase(selectedDate).then((res) => {
+        if (res.success && Array.isArray(res.trucks) && res.trucks.length > 0) {
+          setDbHistoricalTrucks((prev) => ({ ...prev, [selectedDate]: res.trucks! }));
+        }
+      });
+    }
+  }, [isHistoricalView, selectedDate, dbHistoricalTrucks]);
+
+  // Persist live snapshot of today to database periodically or when trucks are updated
+  useEffect(() => {
+    if (trucks.length > 0) {
+      saveSnapshotToDatabase(getWIBDateString(), trucks).catch(() => {});
+    }
+  }, [trucks]);
+
+  // Effective trucks based on live data vs database historical archive
   const effectiveTrucks = useMemo(() => {
-    if (!isHistoricalView || !historyForDate) return trucks;
-    return trucks.map((t) => {
-      const hist = historyForDate[t.id];
-      if (hist) {
-        return {
-          ...t,
-          kesiapan: hist.kesiapan,
-          keterangan: hist.keterangan,
-          terakhirUpdate: hist.terakhirUpdate,
-          status: hist.status || t.status,
-        };
-      }
-      return t;
-    });
-  }, [trucks, isHistoricalView, historyForDate]);
+    if (!isHistoricalView) return trucks;
+    // 1. Prioritaskan data snapshot resmi dari database server
+    if (dbHistoricalTrucks[selectedDate] && dbHistoricalTrucks[selectedDate].length > 0) {
+      return dbHistoricalTrucks[selectedDate];
+    }
+    // 2. Fallback cadangan dari local history snapshot
+    if (historyForDate) {
+      return trucks.map((t) => {
+        const hist = historyForDate[t.id];
+        if (hist) {
+          return {
+            ...t,
+            kesiapan: hist.kesiapan,
+            keterangan: hist.keterangan,
+            terakhirUpdate: hist.terakhirUpdate,
+            status: hist.status || t.status,
+          };
+        }
+        return t;
+      });
+    }
+    return trucks;
+  }, [trucks, isHistoricalView, selectedDate, dbHistoricalTrucks, historyForDate]);
+
+  // Download snapshot report for specific date (Excel/CSV with BOM)
+  const handleDownloadDateReport = useCallback((dateStr: string) => {
+    const targetDate = dateStr || selectedDate || getWIBDateString();
+    if (targetDate === getWIBDateString()) {
+      saveSnapshotToDatabase(targetDate, trucks).finally(() => {
+        downloadDateSnapshotCsv(targetDate);
+      });
+    } else {
+      downloadDateSnapshotCsv(targetDate);
+    }
+    showToast(`✓ Mengunduh rekap armada (${targetDate})`, 'success');
+  }, [selectedDate, trucks, showToast]);
 
   // Filter trucks based on access control, vendor tab, search, status, and readiness
   const visibleTrucks = useMemo(() => {
@@ -424,11 +469,26 @@ export default function App() {
       return false;
     }
 
+    const existing = trucks.find((t) => t.id === updatedTruck.id);
+    let finalKesiapan = updatedTruck.kesiapan;
+    let finalKeterangan = updatedTruck.keterangan || '';
+
+    // ATURAN 1: Ketika armada Nonaktif dikembalikan menjadi Aktif -> Kesiapan otomatis 'Ready'
+    if (existing?.status === 'Nonaktif' && updatedTruck.status === 'Aktif') {
+      finalKesiapan = 'Ready';
+      finalKeterangan = '';
+    } else if (updatedTruck.status === 'Nonaktif') {
+      finalKesiapan = 'Tidak Ready';
+    } else if (finalKesiapan === 'Ready') {
+      finalKeterangan = '';
+    }
+
     const timestamp = formatWIBDateTime();
     const truckWithTimestamp: TruckRecord = {
       ...updatedTruck,
+      kesiapan: finalKesiapan,
+      keterangan: finalKeterangan,
       kapasitas: String(updatedTruck.kapasitas).replace(/\D/g, '') || '28',
-      keterangan: updatedTruck.kesiapan === 'Ready' ? '' : (updatedTruck.keterangan || ''),
       terakhirUpdate: timestamp,
     };
 
@@ -476,10 +536,23 @@ export default function App() {
     const nextTrucks = trucks.map((t) => {
       if (idSet.has(t.id)) {
         affectedTransporters.add(t.transporter);
+        const wasNonaktif = t.status === 'Nonaktif';
+        let bulkKesiapan = t.kesiapan;
+        let bulkKeterangan = t.keterangan || '';
+
+        // ATURAN 1: Ketika armada Nonaktif diaktifkan kembali -> Kesiapan otomatis 'Ready'
+        if (newStatus === 'Nonaktif') {
+          bulkKesiapan = 'Tidak Ready';
+        } else if (newStatus === 'Aktif' && wasNonaktif) {
+          bulkKesiapan = 'Ready';
+          bulkKeterangan = '';
+        }
+
         return {
           ...t,
           status: newStatus,
-          kesiapan: newStatus === 'Nonaktif' ? ('Tidak Ready' as ReadinessStatus) : t.kesiapan,
+          kesiapan: bulkKesiapan,
+          keterangan: bulkKeterangan,
           terakhirUpdate: timestamp,
         };
       }
@@ -891,6 +964,11 @@ export default function App() {
               onOpenApiSettings={() => setIsApiModalOpen(true)}
               onSyncAppSheet={() => handleSyncAppSheet()}
               onExportCsv={handleExportCsv}
+              onDownloadDateReport={handleDownloadDateReport}
+              onForceSaveTodaySnapshot={async () => {
+                await saveSnapshotToDatabase(getWIBDateString(), trucks);
+                showToast('✓ Snapshot hari ini berhasil disimpan ke database!', 'success');
+              }}
               onOpenMasterWhatsApp={handleOpenMasterWhatsApp}
               onOpenFleetModal={handleOpenFleetModal}
               onOpenChangePassword={() => setIsChangePasswordModalOpen(true)}

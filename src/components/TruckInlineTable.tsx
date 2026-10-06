@@ -172,6 +172,14 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
         newState.keterangan = '';
       }
 
+      // ATURAN 1: JIKA STATUS BERUBAH KE AKTIF: KESIAPAN OTOMATIS READY
+      if (updatedFields.status === 'Aktif' && truckOriginal.status === 'Nonaktif') {
+        newState.kesiapan = 'Ready';
+        newState.keterangan = '';
+      } else if (updatedFields.status === 'Nonaktif') {
+        newState.kesiapan = 'Tidak Ready';
+      }
+
       setRowStates((prev) => ({
         ...prev,
         [truckId]: {
@@ -236,6 +244,13 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
     if (field === 'kesiapan' && value === 'Ready') {
       extraUpdates.keterangan = '';
     }
+    // ATURAN 1: Ketika status diubah ke Aktif -> Kesiapan otomatis Ready
+    if (field === 'status' && value === 'Aktif') {
+      extraUpdates.kesiapan = 'Ready';
+      extraUpdates.keterangan = '';
+    } else if (field === 'status' && value === 'Nonaktif') {
+      extraUpdates.kesiapan = 'Tidak Ready';
+    }
 
     setRowStates((prev) => ({
       ...prev,
@@ -268,7 +283,8 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
     if (isLocked) return;
     const currentStatus = rowStates[truckId]?.status || 'Aktif';
     const newStatus: TruckStatus = currentStatus === 'Aktif' ? 'Nonaktif' : 'Aktif';
-    const newReadiness: ReadinessStatus = newStatus === 'Nonaktif' ? 'Tidak Ready' : (rowStates[truckId]?.kesiapan || 'Ready');
+    // ATURAN 1: Ketika dikembalikan menjadi Aktif -> Kesiapan otomatis Ready & keterangan kosong
+    const newReadiness: ReadinessStatus = newStatus === 'Nonaktif' ? 'Tidak Ready' : 'Ready';
     const newKeterangan = newReadiness === 'Ready' ? '' : (rowStates[truckId]?.keterangan || '');
 
     setRowStates((prev) => ({

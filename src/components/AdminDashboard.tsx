@@ -4,6 +4,7 @@ import { TRANSPORTER_NAMES } from '../services/mockData';
 import { isConfirmedToday, formatWIBDateIndo, getWIBDateString, getYesterdayWIBDateString } from '../utils/timeUtils';
 import { AdminAnalyticsReport } from './AdminAnalyticsReport';
 import { ShareReportModal } from './ShareReportModal';
+import { DailySnapshotRecapModal } from './DailySnapshotRecapModal';
 
 interface AdminDashboardProps {
   trucks: TruckRecord[];
@@ -18,6 +19,8 @@ interface AdminDashboardProps {
   onOpenApiSettings: () => void;
   onSyncAppSheet: () => void;
   onExportCsv: () => void;
+  onDownloadDateReport?: (dateStr: string) => void;
+  onForceSaveTodaySnapshot?: () => Promise<void>;
   onOpenMasterWhatsApp: () => void;
   onOpenFleetModal: (vendorCode?: string, depoName?: string) => void;
   onOpenChangePassword?: () => void;
@@ -50,6 +53,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onOpenApiSettings,
   onSyncAppSheet,
   onExportCsv,
+  onDownloadDateReport,
+  onForceSaveTodaySnapshot,
   onOpenMasterWhatsApp,
   onOpenFleetModal,
   onOpenChangePassword,
@@ -64,6 +69,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [mobileTab, setMobileTab] = useState<'ringkasan' | 'armada' | 'vendor' | 'grafik' | 'kontrol'>('ringkasan');
   const [activeDesktopView, setActiveDesktopView] = useState<'monitoring' | 'grafik'>('monitoring');
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isSnapshotModalOpen, setIsSnapshotModalOpen] = useState(false);
   const [mobileSearch, setMobileSearch] = useState('');
   const [mobileVendorFilter, setMobileVendorFilter] = useState('ALL');
   const [mobileReadinessFilter, setMobileReadinessFilter] = useState<'ALL' | 'Ready' | 'Tidak Ready'>('ALL');
@@ -199,18 +205,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
 
         {/* Mobile Date Filter Strip */}
-        <div className="bg-slate-800 text-white px-3 py-2 flex items-center justify-between text-xs border-b border-slate-700 shrink-0">
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] uppercase font-bold text-slate-400">📅 Tanggal:</span>
+        <div className="bg-slate-800 text-white px-3 py-2 flex items-center justify-between text-xs border-b border-slate-700 shrink-0 gap-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-[10px] uppercase font-bold text-slate-400 shrink-0">📅</span>
             <input
               type="date"
               value={selectedDate || getWIBDateString()}
               max={getWIBDateString()}
               onChange={(e) => onSelectDate?.(e.target.value)}
-              className="bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-xs text-white font-mono cursor-pointer"
+              className="bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-xs text-white font-mono cursor-pointer max-w-[125px]"
             />
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 shrink-0">
             <button
               type="button"
               onClick={() => onSelectDate?.(getWIBDateString())}
@@ -228,6 +234,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               }`}
             >
               Kemarin
+            </button>
+            <button
+              type="button"
+              onClick={() => onDownloadDateReport?.(selectedDate || getWIBDateString())}
+              className="px-1.5 py-0.5 rounded bg-emerald-600 active:bg-emerald-700 text-white text-[11px] font-bold flex items-center gap-0.5"
+              title="Unduh Rekap CSV"
+            >
+              <span>📥</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsSnapshotModalOpen(true)}
+              className="px-1.5 py-0.5 rounded bg-slate-700 active:bg-slate-600 text-slate-200 text-[11px] font-bold flex items-center gap-0.5"
+              title="Buka Arsip Database"
+            >
+              <span>📋</span>
             </button>
           </div>
         </div>
@@ -727,6 +749,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                 <button
                   type="button"
+                  onClick={() => setIsSnapshotModalOpen(true)}
+                  className="w-full py-2.5 px-3 rounded-xl bg-slate-900 active:bg-slate-800 text-white font-bold text-xs flex items-center justify-between cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <span>📋</span>
+                    <span>Arsip Rekap Harian Database</span>
+                  </span>
+                  <span>Buka →</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onDownloadDateReport?.(selectedDate || getWIBDateString())}
+                  className="w-full py-2.5 px-3 rounded-xl bg-emerald-50 active:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-xs flex items-center justify-between cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <span>📥</span>
+                    <span>Unduh Rekap Tanggal ({selectedDate || getWIBDateString()})</span>
+                  </span>
+                  <span>Unduh CSV</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={onOpenEmailModal}
                   className="w-full py-2.5 px-3 rounded-xl bg-slate-100 active:bg-slate-200 text-slate-800 font-bold text-xs flex items-center justify-between cursor-pointer"
                 >
@@ -893,6 +939,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               }`}
             >
               Kemarin
+            </button>
+
+            <div className="h-4 w-px bg-slate-200 mx-1" />
+
+            <button
+              type="button"
+              onClick={() => onDownloadDateReport?.(selectedDate || getWIBDateString())}
+              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
+              title="Unduh rekap resmi tanggal ini ke file CSV"
+            >
+              <span>📥</span>
+              <span>Unduh Rekap</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsSnapshotModalOpen(true)}
+              className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
+              title="Buka daftar rekapan harian yang tersimpan di database"
+            >
+              <span>📋</span>
+              <span>Arsip Database</span>
             </button>
           </div>
         </div>
@@ -1346,6 +1414,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}
         trucks={trucks}
+      />
+
+      {/* REKAP HARIAN DATABASE MODAL (ARSIP & DOWNLOAD) */}
+      <DailySnapshotRecapModal
+        isOpen={isSnapshotModalOpen}
+        onClose={() => setIsSnapshotModalOpen(false)}
+        currentSelectedDate={selectedDate || getWIBDateString()}
+        onSelectDate={(d) => onSelectDate?.(d)}
+        onForceSaveTodaySnapshot={onForceSaveTodaySnapshot}
       />
 
     </div>
