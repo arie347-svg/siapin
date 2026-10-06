@@ -1,580 +1,408 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { TruckRecord } from '../types';
 import { TRANSPORTER_NAMES } from '../services/mockData';
-import { formatWIBDateIndo, getWIBDateString } from '../utils/timeUtils';
+import { getWIBDateString, formatWIBDateIndo } from '../utils/timeUtils';
 
 interface AdminAnalyticsReportProps {
   trucks: TruckRecord[];
-  onOpenShareModal: () => void;
+  onOpenShareModal?: () => void;
   onSelectVendorFilter?: (vendor: string) => void;
 }
 
-export const AdminAnalyticsReport: React.FC<AdminAnalyticsReportProps> = ({
-  trucks,
-  onOpenShareModal,
-  onSelectVendorFilter,
-}) => {
-  // Chart Filter states
-  const [selectedMonth, setSelectedMonth] = useState<string>('ALL');
-  const [selectedDepo, setSelectedDepo] = useState<string>('ALL');
-  const [selectedTransporter, setSelectedTransporter] = useState<string>('ALL');
-  const [viewMetric, setViewMetric] = useState<'unit' | 'kapasitas'>('unit');
+export const AdminAnalyticsReport: React.FC<AdminAnalyticsReportProps> = ({ trucks }) => {
+  // 1. Database Snapshots Integration
+  const [dbDates, setDbDates] = useState<string[]>([]);
+  const [selectedDate, setSelectedDate] = useState<string>('LIVE');
+  const [snapshotTrucks, setSnapshotTrucks] = useState<TruckRecord[] | null>(null);
+  const [isLoadingSnapshot, setIsLoadingSnapshot] = useState<boolean>(false);
 
-  // Filter trucks dynamically for the analytics
+  // 2. Filter States: Transporter & Gudang
+  const [selectedTransporter, setSelectedTransporter] = useState<string>('ALL');
+  const [selectedDepo, setSelectedDepo] = useState<string>('ALL');
+  const [downloadReady, setDownloadReady] = useState<{ url: string; fileName: string; count: number } | null>(null);
+
+  // Fetch available dates from Cloud/Server Database
+  useEffect(() => {
+    fetch('/api/snapshots')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.success && Array.isArray(data.dates)) {
+          setDbDates(data.dates);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Fetch specific snapshot when historical date is selected
+  useEffect(() => {
+    if (selectedDate === 'LIVE') {
+      setSnapshotTrucks(null);
+      setDownloadReady(null);
+      return;
+    }
+
+    setIsLoadingSnapshot(true);
+    setDownloadReady(null);
+    fetch(`/api/snapshots/${selectedDate}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.success && Array.isArray(data.trucks)) {
+          setSnapshotTrucks(data.trucks);
+        } else {
+          setSnapshotTrucks([]);
+        }
+      })
+      .catch(() => setSnapshotTrucks([]))
+      .finally(() => setIsLoadingSnapshot(false));
+  }, [selectedDate]);
+
+  // Determine active dataset (Live vs Historical Database Snapshot)
+  const activeSourceTrucks = useMemo(() => {
+    if (selectedDate === 'LIVE') return trucks;
+    return snapshotTrucks || [];
+  }, [selectedDate, trucks, snapshotTrucks]);
+
+  // Filter trucks dynamically
   const filteredTrucks = useMemo(() => {
-    return trucks.filter((t) => {
-      // 1. Transporter
+    return activeSourceTrucks.filter((t) => {
+      // Filter Transporter
       if (selectedTransporter !== 'ALL' && t.transporter !== selectedTransporter) {
         return false;
       }
-      // 2. Depo
+      // Filter Gudang (Depo)
       if (selectedDepo !== 'ALL') {
         const truckDepo = (t.depo || 'Karawang').toLowerCase();
         if (truckDepo !== selectedDepo.toLowerCase()) return false;
       }
-      // 3. Month
-      if (selectedMonth !== 'ALL') {
-        const updateDate = t.terakhirUpdate || getWIBDateString();
-        if (!updateDate.startsWith(selectedMonth)) return false;
-      }
       return true;
     });
-  }, [trucks, selectedTransporter, selectedDepo, selectedMonth]);
+  }, [activeSourceTrucks, selectedTransporter, selectedDepo]);
 
-  // Aggregate metrics
+  // Metrics KPI
   const totalCount = filteredTrucks.length;
-  const activeTrucks = filteredTrucks.filter((t) => t.status === 'Aktif');
-  const activeCount = activeTrucks.length;
-  const nonaktifCount = totalCount - activeCount;
+  const activeCount = filteredTrucks.filter((t) => t.status === 'Aktif').length;
+  const readyCount = filteredTrucks.filter((t) => t.status === 'Aktif' && (t.kesiapan || 'Ready') === 'Ready').length;
+  const kendalaCount = filteredTrucks.filter((t) => t.status === 'Aktif' && t.kesiapan === 'Tidak Ready').length;
+  const readinessPercent = activeCount > 0 ? Math.round((readyCount / activeCount) * 100) : 0;
 
-  const readyTrucks = activeTrucks.filter((t) => (t.kesiapan || 'Ready') === 'Ready');
-  const readyCount = readyTrucks.length;
-  const tidakReadyTrucks = activeTrucks.filter((t) => t.kesiapan === 'Tidak Ready');
-  const tidakReadyCount = tidakReadyTrucks.length;
+  // Generate Detail Colored Excel with Full License Plates List
+  const handleExportColoredExcel = () => {
+    const today = getWIBDateString();
+    const dateLabel = selectedDate === 'LIVE' ? `Hari_Ini_${today}` : selectedDate;
+    const vendorLabel = selectedTransporter === 'ALL' ? 'Semua_Vendor' : selectedTransporter;
+    const depoLabel = selectedDepo === 'ALL' ? 'Semua_Gudang' : selectedDepo;
+    const fileName = `Rekap_Detail_Armada_SIAPIN_${vendorLabel}_${depoLabel}_${dateLabel}.xls`;
 
-  const readyPercent = activeCount > 0 ? Math.round((readyCount / activeCount) * 100) : 0;
-  const tidakPercent = activeCount > 0 ? 100 - readyPercent : 0;
+    const reportDateStr = selectedDate === 'LIVE' ? `${formatWIBDateIndo(today)} (Live)` : formatWIBDateIndo(selectedDate);
 
-  // Capacity metrics
-  const totalKapasitas = filteredTrucks.reduce((sum, t) => sum + (parseInt(t.kapasitas, 10) || 0), 0);
-  const readyKapasitas = readyTrucks.reduce((sum, t) => sum + (parseInt(t.kapasitas, 10) || 0), 0);
-  const tidakReadyKapasitas = tidakReadyTrucks.reduce((sum, t) => sum + (parseInt(t.kapasitas, 10) || 0), 0);
+    // Construct rich HTML Table with Microsoft Excel inline styling & 11 detail columns
+    const html = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta http-equiv="content-type" content="application/vnd.ms-excel; charset=UTF-8"/>
+        <!--[if gte mso 9]>
+        <xml>
+          <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+              <x:ExcelWorksheet>
+                <x:Name>Rekap Detail Armada</x:Name>
+                <x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+              </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+          </x:ExcelWorkbook>
+        </xml>
+        <![endif]-->
+        <style>
+          body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; }
+          .title { font-size: 16pt; font-weight: bold; color: #0f172a; text-align: left; }
+          .subtitle { font-size: 10pt; color: #475569; margin-bottom: 12px; }
+          th { background-color: #0f172a; color: #ffffff; font-weight: bold; border: 1px solid #334155; padding: 10px; text-align: center; font-size: 10pt; }
+          td { border: 1px solid #cbd5e1; padding: 6px 10px; vertical-align: middle; font-size: 10pt; }
+          .center { text-align: center; }
+          .bold { font-weight: bold; }
+          .ready { background-color: #dcfce7; color: #166534; font-weight: bold; text-align: center; }
+          .kendala { background-color: #fee2e2; color: #991b1b; font-weight: bold; text-align: center; }
+          .nonaktif { background-color: #f1f5f9; color: #475569; text-align: center; }
+          .summary-box { background-color: #f8fafc; border: 2px solid #0f172a; font-weight: bold; font-size: 11pt; }
+        </style>
+      </head>
+      <body>
+        <table>
+          <tr><td colspan="11" class="title">REKAP DETAIL KESIAPAN & NOMOR POLISI ARMADA LOGISTIK MD TO DEALER</td></tr>
+          <tr><td colspan="11" class="subtitle">Tanggal Arsip Database: ${reportDateStr} | Vendor: ${vendorLabel} | Gudang: ${depoLabel} | Diekspor: ${new Date().toLocaleTimeString('id-ID')} WIB</td></tr>
+          <tr><td colspan="11"></td></tr>
+          <tr class="summary-box">
+            <td colspan="2" class="center">Total Armada: ${totalCount}</td>
+            <td colspan="2" class="center">Armada Aktif: ${activeCount}</td>
+            <td colspan="2" class="center" style="color: #166534;">✓ Ready: ${readyCount}</td>
+            <td colspan="2" class="center" style="color: #991b1b;">⚠ Kendala: ${kendalaCount}</td>
+            <td colspan="3" class="center">Tingkat Kesiapan: ${readinessPercent}%</td>
+          </tr>
+          <tr><td colspan="11"></td></tr>
+          <thead>
+            <tr>
+              <th style="width: 45px;">No</th>
+              <th style="width: 110px;">Tanggal Database</th>
+              <th style="width: 180px;">Transporter</th>
+              <th style="width: 120px;">Gudang / Depo</th>
+              <th style="width: 120px;">Nomor Polisi</th>
+              <th style="width: 180px;">Nama Sopir</th>
+              <th style="width: 90px;">Kapasitas</th>
+              <th style="width: 100px;">Status Truk</th>
+              <th style="width: 120px;">Kesiapan</th>
+              <th style="width: 260px;">Keterangan Kendala</th>
+              <th style="width: 160px;">Terakhir Update</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filteredTrucks
+              .map((t, idx) => {
+                const isReady = t.kesiapan === 'Ready';
+                const isNonaktif = t.status === 'Nonaktif';
+                const rowClass = isNonaktif ? 'nonaktif' : isReady ? 'ready' : 'kendala';
+                const vendorFullName = TRANSPORTER_NAMES[t.transporter] || t.transporter;
+                const dateVal = selectedDate === 'LIVE' ? today : selectedDate;
+                return `
+                <tr>
+                  <td class="center">${idx + 1}</td>
+                  <td class="center">${dateVal}</td>
+                  <td>${vendorFullName}</td>
+                  <td class="center">${t.depo || 'Karawang'}</td>
+                  <td class="center bold" style="font-family: monospace; font-size: 11pt;">${t.nomorPolisi}</td>
+                  <td>${t.namaSopir || '-'}</td>
+                  <td class="center">${t.kapasitas} Unit</td>
+                  <td class="center">${t.status}</td>
+                  <td class="${rowClass}">${isNonaktif ? 'Nonaktif' : isReady ? '✓ Ready' : '⚠ Tidak Ready'}</td>
+                  <td style="color: ${!isReady && !isNonaktif ? '#991b1b' : '#334155'}; font-weight: ${!isReady && !isNonaktif ? 'bold' : 'normal'};">
+                    ${t.keterangan || '-'}
+                  </td>
+                  <td class="center">${t.terakhirUpdate || '-'}</td>
+                </tr>
+              `;
+              })
+              .join('')}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
 
-  // Vendor comparison data
-  const vendorCodes = ['TM', 'RJTM', 'WSS', 'SBR'];
-  const vendorStats = useMemo(() => {
-    return vendorCodes.map((code) => {
-      const vTrucks = filteredTrucks.filter((t) => t.transporter === code);
-      const vAktif = vTrucks.filter((t) => t.status === 'Aktif');
-      const vReady = vAktif.filter((t) => (t.kesiapan || 'Ready') === 'Ready').length;
-      const vTidak = vAktif.length - vReady;
-      const vPct = vAktif.length > 0 ? Math.round((vReady / vAktif.length) * 100) : 0;
-      const vKap = vAktif.reduce((acc, t) => acc + (parseInt(t.kapasitas, 10) || 0), 0);
+    const blob = new Blob(['\uFEFF' + html], { type: 'application/vnd.ms-excel;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    setDownloadReady({ url, fileName, count: filteredTrucks.length });
 
-      return {
-        code,
-        name: TRANSPORTER_NAMES[code] || code,
-        total: vTrucks.length,
-        aktif: vAktif.length,
-        ready: vReady,
-        tidak: vTidak,
-        pct: vPct,
-        kapasitas: vKap,
-      };
-    });
-  }, [filteredTrucks]);
-
-  // Depo comparison data
-  const depos = ['Karawang', 'Baros', 'Cirebon'];
-  const depoStats = useMemo(() => {
-    return depos.map((depoName) => {
-      const dTrucks = filteredTrucks.filter((t) => (t.depo || 'Karawang').toLowerCase() === depoName.toLowerCase());
-      const dAktif = dTrucks.filter((t) => t.status === 'Aktif');
-      const dReady = dAktif.filter((t) => (t.kesiapan || 'Ready') === 'Ready').length;
-      const dTidak = dAktif.length - dReady;
-      const dPct = dAktif.length > 0 ? Math.round((dReady / dAktif.length) * 100) : 0;
-      const dKap = dAktif.reduce((acc, t) => acc + (parseInt(t.kapasitas, 10) || 0), 0);
-
-      return {
-        name: depoName,
-        total: dTrucks.length,
-        aktif: dAktif.length,
-        ready: dReady,
-        tidak: dTidak,
-        pct: dPct,
-        kapasitas: dKap,
-      };
-    });
-  }, [filteredTrucks]);
-
-  // SVG Radial Donut calculations
-  const radius = 68;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (readyPercent / 100) * circumference;
+    // Auto download trigger
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
 
   return (
-    <div className="w-full space-y-4 pb-8">
-      {/* 1. TOP HEADER & FILTER BAR */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-slate-100">
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-600 to-rose-700 text-white flex items-center justify-center text-lg shadow-md shadow-red-500/20">
-              📊
-            </div>
-            <div>
-              <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
-                <span>Visual Analytics & Report Kesiapan</span>
-                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                  Live
-                </span>
-              </h2>
-              <p className="text-xs text-slate-500 font-medium">
-                Grafik interaktif armada distribusi MD to Dealer (Bisa difilter multi-kondisi)
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 self-start sm:self-auto">
-            {/* Direct Share Button */}
-            <button
-              type="button"
-              onClick={onOpenShareModal}
-              className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer"
-            >
-              <span>📤</span>
-              <span>Bagikan Laporan</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Dynamic Filters Form */}
-        <div className="pt-3.5">
-          <div className="text-[10px] uppercase font-black text-slate-400 tracking-wider mb-2 flex items-center gap-1">
-            <span>⚙️</span> Filter Kondisi Grafik & Laporan:
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-            {/* Filter Bulan */}
-            <div>
-              <label className="block text-[10.5px] font-bold text-slate-600 mb-1">
-                Periode Bulan
-              </label>
-              <select
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 font-bold text-slate-800 text-xs focus:ring-1 focus:ring-red-500 focus:outline-hidden"
-              >
-                <option value="ALL">Semua Bulan (ALL)</option>
-                <option value="2026-10">Oktober 2026</option>
-                <option value="2026-09">September 2026</option>
-                <option value="2026-08">Agustus 2026</option>
-                <option value="2026-07">Juli 2026</option>
-              </select>
-            </div>
-
-            {/* Filter Depo */}
-            <div>
-              <label className="block text-[10.5px] font-bold text-slate-600 mb-1">
-                Depo Lokasi
-              </label>
-              <select
-                value={selectedDepo}
-                onChange={(e) => setSelectedDepo(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 font-bold text-slate-800 text-xs focus:ring-1 focus:ring-red-500 focus:outline-hidden"
-              >
-                <option value="ALL">Semua Depo (ALL)</option>
-                <option value="Karawang">Karawang</option>
-                <option value="Baros">Baros</option>
-                <option value="Cirebon">Cirebon</option>
-              </select>
-            </div>
-
-            {/* Filter Transporter */}
-            <div>
-              <label className="block text-[10.5px] font-bold text-slate-600 mb-1">
-                Transporter
-              </label>
-              <select
-                value={selectedTransporter}
-                onChange={(e) => setSelectedTransporter(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 font-bold text-slate-800 text-xs focus:ring-1 focus:ring-red-500 focus:outline-hidden"
-              >
-                <option value="ALL">Semua Transporter (ALL)</option>
-                <option value="TM">TM</option>
-                <option value="WSS">WSS</option>
-                <option value="RJTM">RJTM</option>
-                <option value="SBR">SBR</option>
-              </select>
-            </div>
-
-            {/* Metric Mode Toggle */}
-            <div>
-              <label className="block text-[10.5px] font-bold text-slate-600 mb-1">
-                Basis Metrik Grafik
-              </label>
-              <div className="flex bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs font-bold">
-                <button
-                  type="button"
-                  onClick={() => setViewMetric('unit')}
-                  className={`flex-1 py-1 rounded-lg text-center transition cursor-pointer ${
-                    viewMetric === 'unit' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-800'
-                  }`}
-                >
-                  Unit Truk
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMetric('kapasitas')}
-                  className={`flex-1 py-1 rounded-lg text-center transition cursor-pointer ${
-                    viewMetric === 'kapasitas' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-800'
-                  }`}
-                >
-                  Kapasitas
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. KPI METRICS CARDS */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
-        {/* Card 1: Total Armada Terfilter */}
-        <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col justify-between">
-          <div className="flex items-center justify-between text-slate-500 text-xs">
-            <span className="font-bold text-[11px] uppercase tracking-wide">Total Armada</span>
-            <span className="p-1 rounded-lg bg-slate-100 text-slate-700">🚛</span>
-          </div>
-          <div className="mt-2 flex items-baseline gap-1.5">
-            <span className="text-2xl sm:text-3xl font-black text-slate-900">{totalCount}</span>
-            <span className="text-xs font-bold text-slate-500">Unit ({activeCount} Aktif)</span>
-          </div>
-          <div className="mt-2 text-[10.5px] text-slate-500 font-medium">
-            Nonaktif: <span className="font-bold text-slate-700">{nonaktifCount} unit</span>
-          </div>
-        </div>
-
-        {/* Card 2: Unit Ready */}
-        <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-emerald-200/80 shadow-2xs flex flex-col justify-between bg-gradient-to-br from-white to-emerald-50/30">
-          <div className="flex items-center justify-between text-emerald-700 text-xs">
-            <span className="font-bold text-[11px] uppercase tracking-wide">Armada Ready</span>
-            <span className="p-1 rounded-lg bg-emerald-100 text-emerald-800">✓</span>
-          </div>
-          <div className="mt-2 flex items-baseline gap-1.5">
-            <span className="text-2xl sm:text-3xl font-black text-emerald-700">{readyCount}</span>
-            <span className="text-xs font-extrabold text-emerald-600 bg-emerald-100 px-1.5 py-0.2 rounded-full">
-              {readyPercent}%
-            </span>
-          </div>
-          <div className="mt-2 text-[10.5px] text-emerald-800 font-medium">
-            Kapasitas: <span className="font-bold">{readyKapasitas} unit motor</span>
-          </div>
-        </div>
-
-        {/* Card 3: Unit Tidak Ready */}
-        <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-rose-200/80 shadow-2xs flex flex-col justify-between bg-gradient-to-br from-white to-rose-50/30">
-          <div className="flex items-center justify-between text-rose-700 text-xs">
-            <span className="font-bold text-[11px] uppercase tracking-wide">Kendala / Tidak Ready</span>
-            <span className="p-1 rounded-lg bg-rose-100 text-rose-800">⚠️</span>
-          </div>
-          <div className="mt-2 flex items-baseline gap-1.5">
-            <span className="text-2xl sm:text-3xl font-black text-rose-700">{tidakReadyCount}</span>
-            <span className="text-xs font-extrabold text-rose-600 bg-rose-100 px-1.5 py-0.2 rounded-full">
-              {tidakPercent}%
-            </span>
-          </div>
-          <div className="mt-2 text-[10.5px] text-rose-800 font-medium">
-            Kehilangan Kapasitas: <span className="font-bold">{tidakReadyKapasitas} unit</span>
-          </div>
-        </div>
-
-        {/* Card 4: Total Kapasitas Angkut */}
-        <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col justify-between">
-          <div className="flex items-center justify-between text-slate-500 text-xs">
-            <span className="font-bold text-[11px] uppercase tracking-wide">Total Kapasitas</span>
-            <span className="p-1 rounded-lg bg-blue-100 text-blue-800">📦</span>
-          </div>
-          <div className="mt-2 flex items-baseline gap-1.5">
-            <span className="text-2xl sm:text-3xl font-black text-slate-900">{totalKapasitas}</span>
-            <span className="text-xs font-bold text-slate-500">Unit Motor</span>
-          </div>
-          <div className="mt-2 text-[10.5px] text-blue-700 font-medium">
-            Rasio Angkut: <span className="font-bold">{totalCount > 0 ? (totalKapasitas / totalCount).toFixed(1) : 0} unit / truk</span>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. MODERN VISUAL CHARTS SECTION */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <div className="w-full max-w-4xl mx-auto space-y-3 animate-in fade-in duration-150">
+      {/* Kartu Utama Rekap Data Hasil Updatean Harian */}
+      <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-sm space-y-3.5">
         
-        {/* DONUT RADIAL GAUGE CHART */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center justify-between">
-          <div className="w-full flex items-center justify-between border-b border-slate-100 pb-2.5 mb-2">
-            <span className="text-xs font-black text-slate-800 uppercase tracking-wide">
-              Rasio Kesiapan Keseluruhan
-            </span>
-            <span className="text-[10px] font-bold text-slate-400">
-              Filter Aktif
-            </span>
-          </div>
-
-          {/* SVG Donut */}
-          <div className="relative w-44 h-44 my-2 flex items-center justify-center">
-            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 160 160">
-              {/* Background Circle */}
-              <circle
-                cx="80"
-                cy="80"
-                r={radius}
-                className="text-slate-100 stroke-current"
-                strokeWidth="14"
-                fill="transparent"
-              />
-              {/* Ready Portion Circle */}
-              <circle
-                cx="80"
-                cy="80"
-                r={radius}
-                className="text-emerald-500 stroke-current transition-all duration-1000 ease-out"
-                strokeWidth="14"
-                strokeDasharray={circumference}
-                strokeDashoffset={strokeDashoffset}
-                strokeLinecap="round"
-                fill="transparent"
-              />
-            </svg>
-
-            {/* Center Metric Label */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-              <span className="text-3xl font-black text-slate-900 tracking-tight">
-                {readyPercent}%
-              </span>
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-                Ready Rate
-              </span>
-              <span className="text-[9.5px] font-bold text-emerald-600 mt-0.5">
-                {readyCount} dari {activeCount} Unit
-              </span>
-            </div>
-          </div>
-
-          {/* Donut Legend */}
-          <div className="w-full grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 text-xs">
-            <div className="flex items-center gap-2 p-1.5 rounded-lg bg-emerald-50/70 border border-emerald-200/60">
-              <span className="w-3 h-3 rounded-full bg-emerald-500 shrink-0" />
-              <div>
-                <div className="text-[10px] text-emerald-800 font-bold">Ready</div>
-                <div className="font-extrabold text-emerald-950 text-xs">{readyCount} Unit</div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 p-1.5 rounded-lg bg-rose-50/70 border border-rose-200/60">
-              <span className="w-3 h-3 rounded-full bg-rose-500 shrink-0" />
-              <div>
-                <div className="text-[10px] text-rose-800 font-bold">Tidak Ready</div>
-                <div className="font-extrabold text-rose-950 text-xs">{tidakReadyCount} Unit</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* COMPARATIVE BAR CHART: KESIAPAN PER TRANSPORTER */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-2.5 mb-3">
-            <div>
-              <h3 className="text-xs font-black text-slate-800 uppercase tracking-wide">
-                Perbandingan Transporter
-              </h3>
-              <p className="text-[10px] text-slate-400 font-medium">Persentase & kapasitas armada ready</p>
-            </div>
-            <span className="text-xs font-mono font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
-              4 Vendor
-            </span>
-          </div>
-
-          <div className="space-y-3.5 my-auto">
-            {vendorStats.map((v) => (
-              <div key={v.code} className="space-y-1">
-                <div className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-extrabold text-slate-900">{v.code}</span>
-                    <span className="text-[10px] text-slate-400 font-medium truncate max-w-[120px]">
-                      {v.name}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-black text-xs text-slate-900">{v.pct}%</span>
-                    <span className="text-[10.5px] text-slate-500 font-semibold">
-                      ({v.ready}/{v.aktif})
-                    </span>
-                  </div>
-                </div>
-
-                {/* Progress bar */}
-                <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden flex shadow-inner">
-                  <div
-                    style={{ width: `${v.pct}%` }}
-                    className="h-full bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-l-full transition-all duration-700"
-                    title={`Ready: ${v.ready} unit`}
-                  />
-                  <div
-                    style={{ width: `${v.aktif > 0 ? (v.tidak / v.aktif) * 100 : 0}%` }}
-                    className="h-full bg-rose-500 transition-all duration-700"
-                    title={`Tidak Ready: ${v.tidak} unit`}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5">
-                  <span>Kap: {v.kapasitas} unit</span>
-                  <span>{v.tidak > 0 ? `${v.tidak} unit kendala` : 'Semua ready'}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-3 pt-2 border-t border-slate-100 text-[10px] text-slate-500 flex items-center justify-between">
-            <span>Hijau: Ready</span>
-            <span>Merah: Kendala</span>
-          </div>
-        </div>
-
-        {/* COMPARATIVE BAR CHART: KESIAPAN PER DEPO LOKASI */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-2.5 mb-3">
-            <div>
-              <h3 className="text-xs font-black text-slate-800 uppercase tracking-wide">
-                Kesiapan per Depo Audit
-              </h3>
-              <p className="text-[10px] text-slate-400 font-medium">Distribusi armada di 3 lokasi depo</p>
-            </div>
-            <span className="text-xs font-mono font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
-              3 Depo
-            </span>
-          </div>
-
-          <div className="space-y-4 my-auto">
-            {depoStats.map((d) => (
-              <div key={d.name} className="space-y-1">
-                <div className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-blue-500" />
-                    <span className="font-extrabold text-slate-900">Depo {d.name}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-black text-xs text-slate-900">{d.pct}%</span>
-                    <span className="text-[10.5px] text-slate-500 font-semibold">
-                      ({d.ready}/{d.aktif})
-                    </span>
-                  </div>
-                </div>
-
-                {/* Progress bar */}
-                <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden flex shadow-inner">
-                  <div
-                    style={{ width: `${d.pct}%` }}
-                    className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 rounded-l-full transition-all duration-700"
-                    title={`Ready: ${d.ready} unit`}
-                  />
-                  <div
-                    style={{ width: `${d.aktif > 0 ? (d.tidak / d.aktif) * 100 : 0}%` }}
-                    className="h-full bg-rose-500 transition-all duration-700"
-                    title={`Tidak Ready: ${d.tidak} unit`}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5">
-                  <span>Total Kapasitas: {d.kapasitas} unit</span>
-                  <span>{d.total} armada terdaftar</span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500">
-            <span>Biru: Armada Siap Kirim</span>
-            <span>Merah: Perlu Penanganan</span>
-          </div>
-        </div>
-
-      </div>
-
-      {/* 4. DAFTAR KENDALA / UNIT TIDAK READY (JIKA ADA) */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-rose-600 font-bold">⚠️</span>
-            <h3 className="font-extrabold text-xs text-slate-800 uppercase tracking-wide">
-              Daftar Armada Mengalami Kendala (Tidak Ready)
+        {/* Header Ringkas */}
+        <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
+          <div>
+            <h3 className="text-sm sm:text-base font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+              <span className="text-lg">📊</span>
+              <span>Rekap Data Hasil Update Harian</span>
             </h3>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800">
-              {tidakReadyTrucks.length} Unit
-            </span>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              Pilih tanggal arsip database & filter, lalu ekspor detail list nomor polisi ke file Excel berwarna
+            </p>
+          </div>
+          <span className="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-slate-100 text-slate-700">
+            {filteredTrucks.length} Unit
+          </span>
+        </div>
+
+        {/* 3 Filter Terpadu: Tanggal Database, Transporter, Gudang */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          {/* 1. Filter Tanggal Arsip Database */}
+          <div>
+            <label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">
+              📅 Tanggal Arsip Database
+            </label>
+            <select
+              value={selectedDate}
+              onChange={(e) => {
+                setSelectedDate(e.target.value);
+              }}
+              className="w-full bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-hidden focus:border-red-500 transition cursor-pointer"
+            >
+              <option value="LIVE">Hari Ini (Data Live)</option>
+              {dbDates.map((d) => (
+                <option key={d} value={d}>
+                  {formatWIBDateIndo(d)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* 2. Filter Transporter */}
+          <div>
+            <label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">
+              🚚 Transporter
+            </label>
+            <select
+              value={selectedTransporter}
+              onChange={(e) => {
+                setSelectedTransporter(e.target.value);
+                setDownloadReady(null);
+              }}
+              className="w-full bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-hidden focus:border-red-500 transition cursor-pointer"
+            >
+              <option value="ALL">Semua Transporter</option>
+              <option value="TM">TM - PT Tunas Muda Mandiri</option>
+              <option value="RJTM">RJTM - PT Roda Jagat Tunas Mas</option>
+              <option value="WSS">WSS - PT Wahana Sumber Sakti</option>
+              <option value="SBR">SBR - PT Sari Bumi Raya</option>
+            </select>
+          </div>
+
+          {/* 3. Filter Gudang */}
+          <div>
+            <label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">
+              📍 Gudang (Depo)
+            </label>
+            <select
+              value={selectedDepo}
+              onChange={(e) => {
+                setSelectedDepo(e.target.value);
+                setDownloadReady(null);
+              }}
+              className="w-full bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-hidden focus:border-red-500 transition cursor-pointer"
+            >
+              <option value="ALL">Semua Gudang</option>
+              <option value="Karawang">Depo Karawang</option>
+              <option value="Baros">Depo Baros</option>
+              <option value="Cirebon">Depo Cirebon</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Ringkasan Angka Cepat & Tombol Export */}
+        <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t border-slate-100">
+          <div className="flex items-center gap-3 text-xs font-mono">
+            <span className="text-slate-600">Total: <strong>{totalCount}</strong></span>
+            <span className="text-emerald-700 font-bold">✓ Ready: {readyCount}</span>
+            <span className="text-rose-700 font-bold">⚠ Kendala: {kendalaCount}</span>
+            <span className="text-slate-700 font-bold">Kesiapan: {readinessPercent}%</span>
           </div>
 
           <button
             type="button"
-            onClick={onOpenShareModal}
-            className="text-[11px] font-bold text-red-600 hover:text-red-700 transition cursor-pointer"
+            onClick={handleExportColoredExcel}
+            disabled={isLoadingSnapshot || totalCount === 0}
+            className="py-2 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 disabled:opacity-50 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-xs transition cursor-pointer"
           >
-            Bagikan Data Kendala →
+            <span className="text-sm">📤</span>
+            <span>{isLoadingSnapshot ? 'Memuat Database...' : 'Export Excel Berwarna (Detail Nopol)'}</span>
           </button>
         </div>
 
-        {tidakReadyTrucks.length === 0 ? (
-          <div className="p-8 text-center text-slate-400 text-xs">
-            <span className="text-2xl block mb-1">🎉</span>
-            <span className="font-bold text-slate-700">Luar biasa! Tidak ada armada yang mengalami kendala.</span>
-            <p className="text-[11px] text-slate-500 mt-0.5">Seluruh unit aktif pada filter saat ini berstatus Ready untuk pengiriman.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-slate-100 text-slate-600 font-extrabold text-[10px] uppercase border-b border-slate-200">
-                <tr>
-                  <th className="py-2.5 px-3 text-center">#</th>
-                  <th className="py-2.5 px-3">No. Polisi</th>
-                  <th className="py-2.5 px-3">Sopir</th>
-                  <th className="py-2.5 px-3">Transporter</th>
-                  <th className="py-2.5 px-3">Depo</th>
-                  <th className="py-2.5 px-3 text-center">Kap</th>
-                  <th className="py-2.5 px-3">Alasan / Keterangan Kendala</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {tidakReadyTrucks.map((t, idx) => (
-                  <tr key={t.id} className="hover:bg-rose-50/40 transition">
-                    <td className="py-2.5 px-3 text-center text-slate-400 font-mono text-[11px]">
-                      {idx + 1}
-                    </td>
-                    <td className="py-2.5 px-3 font-mono font-bold text-slate-900">
-                      {t.nomorPolisi}
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-700 font-medium">
-                      {t.namaSopir || '-'}
-                    </td>
-                    <td className="py-2.5 px-3">
-                      <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-800 font-bold text-[10.5px]">
-                        {t.transporter}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-600 font-medium">
-                      {t.depo || 'Karawang'}
-                    </td>
-                    <td className="py-2.5 px-3 text-center font-bold text-slate-700">
-                      {t.kapasitas}
-                    </td>
-                    <td className="py-2.5 px-3">
-                      <span className="inline-block px-2 py-0.5 rounded text-[11px] font-bold bg-rose-100 text-rose-800">
-                        {t.keterangan || 'Kendala Teknis'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {/* Kartu Download File Excel Berwarna Tinggal Klik */}
+        {downloadReady && (
+          <div className="p-3.5 rounded-2xl bg-emerald-50/90 border-2 border-emerald-300/80 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="text-2xl shrink-0">📗</span>
+              <div className="min-w-0">
+                <span className="text-xs font-extrabold text-emerald-950 block truncate font-mono">
+                  {downloadReady.fileName}
+                </span>
+                <span className="text-[11px] text-emerald-700 font-medium">
+                  File Excel detail list nomor polisi berhasil dibuat ({downloadReady.count} unit armada terformat)
+                </span>
+              </div>
+            </div>
+
+            <a
+              href={downloadReady.url}
+              download={downloadReady.fileName}
+              className="py-2 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white font-extrabold text-xs shrink-0 shadow-md transition flex items-center justify-center gap-2 cursor-pointer text-center"
+            >
+              <span>📥</span>
+              <span>Download File Excel</span>
+            </a>
           </div>
         )}
-      </div>
 
+        {/* Preview Ringkas Detail List Nomor Polisi */}
+        <div className="pt-2 border-t border-slate-100">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+              Preview Detail Armada yang Diekspor:
+            </span>
+            <span className="text-[10px] text-slate-400">
+              {filteredTrucks.length} unit armada
+            </span>
+          </div>
+
+          {filteredTrucks.length === 0 ? (
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-center text-xs text-slate-500">
+              {isLoadingSnapshot ? 'Sedang memuat data dari database...' : 'Tidak ada data armada yang cocok dengan filter.'}
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-xl border border-slate-200">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-slate-50 text-[10px] font-extrabold uppercase text-slate-600 border-b border-slate-200">
+                  <tr>
+                    <th className="py-2 px-3">No</th>
+                    <th className="py-2 px-3">Nomor Polisi</th>
+                    <th className="py-2 px-3">Transporter</th>
+                    <th className="py-2 px-3">Gudang</th>
+                    <th className="py-2 px-3">Sopir</th>
+                    <th className="py-2 px-3 text-center">Kesiapan</th>
+                    <th className="py-2 px-3">Keterangan Kendala</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {filteredTrucks.slice(0, 5).map((t, idx) => {
+                    const isReady = t.kesiapan === 'Ready';
+                    const isNonaktif = t.status === 'Nonaktif';
+                    return (
+                      <tr key={t.id || t.nomorPolisi || idx} className="hover:bg-slate-50/70 transition">
+                        <td className="py-1.5 px-3 font-mono text-slate-400 text-[11px]">{idx + 1}</td>
+                        <td className="py-1.5 px-3 font-mono font-bold text-slate-900">{t.nomorPolisi}</td>
+                        <td className="py-1.5 px-3 font-bold text-slate-700">{t.transporter}</td>
+                        <td className="py-1.5 px-3 text-slate-600">{t.depo || 'Karawang'}</td>
+                        <td className="py-1.5 px-3 text-slate-600 truncate max-w-[120px]">{t.namaSopir || '-'}</td>
+                        <td className="py-1.5 px-3 text-center">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              isNonaktif
+                                ? 'bg-slate-100 text-slate-600'
+                                : isReady
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : 'bg-rose-100 text-rose-800'
+                            }`}
+                          >
+                            {isNonaktif ? 'Nonaktif' : isReady ? 'Ready' : 'Kendala'}
+                          </span>
+                        </td>
+                        <td className="py-1.5 px-3 text-slate-500 truncate max-w-[160px]">
+                          {t.keterangan || '-'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              {filteredTrucks.length > 5 && (
+                <div className="bg-slate-50 py-1.5 px-3 text-center text-[10px] text-slate-500 font-medium border-t border-slate-100">
+                  + {filteredTrucks.length - 5} unit armada lainnya akan disertakan lengkap di file Excel
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+      </div>
     </div>
   );
 };

@@ -932,6 +932,36 @@ app.get('/api/snapshots/download/:date', async (req: Request, res: Response) => 
   }
 });
 
+// Automated Daily Snapshot Scheduler (Memastikan snapshot harian selalu tersimpan otomatis di database)
+setInterval(async () => {
+  try {
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    const filePath = path.join(SNAPSHOTS_DIR, `${todayStr}.json`);
+    // Jika hari ini belum memiliki rekaman arsip, tarik data dan simpan otomatis
+    if (!fs.existsSync(filePath)) {
+      const raw = await callAppSheetApi('Find', [], currentTableName);
+      if (Array.isArray(raw) && raw.length > 0) {
+        const autoTrucks = raw.map((r: any) => ({
+          id: r['ID'] || r['Nomor Polisi'],
+          nomorPolisi: r['Nomor Polisi'] || '',
+          transporter: normalizeTransporterCode(r['Transporter'] || ''),
+          depo: r['Lokasi Audit'] || r['Depo'] || 'Karawang',
+          namaSopir: r['Nama Sopir'] || '',
+          kapasitas: String(r['Kapasitas'] || '28'),
+          status: r['Status Truk'] || r['Status'] || 'Aktif',
+          kesiapan: r['Kesiapan'] || 'Ready',
+          keterangan: r['Keterangan'] || '',
+          terakhirUpdate: r['Log'] || '',
+        }));
+        await saveDailySnapshotInternal(todayStr, autoTrucks);
+        console.log(`[Auto-Snapshot] Berhasil mengarsipkan otomatis ${autoTrucks.length} unit armada untuk tanggal ${todayStr}`);
+      }
+    }
+  } catch (err: any) {
+    // Silent non-blocking fail-safe
+  }
+}, 15 * 60 * 1000); // Cek berkala setiap 15 menit
+
 // Vite & Static file serving setup
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {

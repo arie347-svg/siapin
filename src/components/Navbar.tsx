@@ -63,17 +63,11 @@ export const Navbar: React.FC<NavbarProps> = ({
       <header className="sticky top-0 z-40 bg-[#FF0000] text-white border-b border-red-700 shadow-[0_4px_20px_-2px_rgba(255,0,0,0.3)] shrink-0 select-none">
         <div className="max-w-7xl mx-auto px-3 sm:px-5 py-2.5 flex items-center justify-between gap-3">
           
-          {/* Sisi Kiri: Judul Pusat Kendali Admin + Jam Live WIB */}
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-2.5 h-2.5 rounded-full bg-white animate-pulse" />
-            <div>
-              <h1 className="text-sm sm:text-base md:text-lg font-extrabold text-white tracking-tight leading-tight">
-                Pusat Kendali Admin
-              </h1>
-              <p className="text-[10px] sm:text-xs text-red-100 font-medium leading-none mt-0.5">
-                Monitoring & Manajemen Kesiapan Armada Logistik MD to Dealer
-              </p>
-            </div>
+          {/* Sisi Kiri: Judul Dashboard Admin */}
+          <div className="flex items-center min-w-0">
+            <h1 className="text-sm sm:text-base md:text-lg font-black text-white tracking-tight leading-tight">
+              Dashboard Admin
+            </h1>
           </div>
 
           {/* Sisi Kanan: PWA Install + Icon Logout */}
@@ -85,12 +79,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                 type="button"
                 onClick={onLogout}
                 title="Keluar dari Akun Admin"
-                className="px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white border border-white/40 transition flex items-center gap-1.5 text-xs font-extrabold cursor-pointer shadow-xs"
+                className="p-1.5 sm:p-2 rounded-lg bg-white/20 hover:bg-white/30 text-white border border-white/40 transition flex items-center justify-center cursor-pointer shadow-xs"
               >
                 <svg className="w-4 h-4 stroke-current fill-none" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.3" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                 </svg>
-                <span>Logout</span>
               </button>
             )}
           </div>
