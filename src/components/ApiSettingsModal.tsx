@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { syncMasterDriversToDataTruk2 } from '../services/apiService';
 
 interface ApiSettingsModalProps {
   isOpen: boolean;
@@ -86,7 +87,34 @@ export const ApiSettingsModal: React.FC<ApiSettingsModalProps> = ({
   const [activeTab, setActiveTab] = useState<'appsheet' | 'gas' | 'script'>('appsheet');
   const [isCopied, setIsCopied] = useState(false);
 
+  const [isSyncingDrivers, setIsSyncingDrivers] = useState(false);
+  const [driverSyncResult, setDriverSyncResult] = useState<{
+    success: boolean;
+    message: string;
+    count?: number;
+  } | null>(null);
+
   if (!isOpen) return null;
+
+  const handleSyncMasterDrivers = async () => {
+    setIsSyncingDrivers(true);
+    setDriverSyncResult(null);
+    try {
+      const res = await syncMasterDriversToDataTruk2();
+      setIsSyncingDrivers(false);
+      setDriverSyncResult({
+        success: res.success,
+        message: res.message || (res.success ? `Berhasil menstandarisasi ${res.count || 0} sopir.` : 'Gagal'),
+        count: res.count,
+      });
+    } catch (e: any) {
+      setIsSyncingDrivers(false);
+      setDriverSyncResult({
+        success: false,
+        message: e.message || 'Koneksi gagal',
+      });
+    }
+  };
 
   const handleTestAndSaveGas = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -270,6 +298,62 @@ export const ApiSettingsModal: React.FC<ApiSettingsModalProps> = ({
                   <p>{appSheetResult.message}</p>
                 </div>
               )}
+
+              {/* Master Driver Table Reconciliation */}
+              <div className="p-3.5 bg-blue-50/70 border border-blue-200 rounded-xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">🚚</span>
+                    <span className="font-bold text-slate-800 text-xs">
+                      Standarisasi Master Sopir (Data Truk 2)
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-semibold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full">
+                    DocId: 1zE6zs...
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  Menyelaraskan nama lama di tabel master <strong>Data Truk 2</strong> (DocId: 1zE6zs-UQcKMJN0AlNBMNWPKKjzEIRLKb) dengan nama terstandarisasi (contoh: <code>GALIH TM BRS</code>) agar sinkron dengan relasi di <strong>MD to Dealer 2</strong>.
+                </p>
+                <div className="pt-1 flex items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    disabled={isSyncingDrivers}
+                    onClick={handleSyncMasterDrivers}
+                    className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold rounded-lg text-xs transition cursor-pointer flex items-center gap-1.5 shadow-xs disabled:opacity-50"
+                  >
+                    {isSyncingDrivers ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Menyinkronkan Master...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>🔄</span>
+                        <span>Sinkronkan Master Sopir ke Data Truk 2</span>
+                      </>
+                    )}
+                  </button>
+                  <span className="text-[10px] text-slate-400">
+                    Otomatis mencocokkan ID & nama sopir
+                  </span>
+                </div>
+
+                {driverSyncResult && (
+                  <div
+                    className={`mt-2 p-2.5 rounded-lg text-xs border font-medium ${
+                      driverSyncResult.success
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                        : 'bg-red-50 text-red-800 border-red-300'
+                    }`}
+                  >
+                    <div className="font-bold mb-0.5">
+                      {driverSyncResult.success ? '✓ Sinkronisasi Master Selesai' : 'Gagal Sinkronisasi'}
+                    </div>
+                    <p>{driverSyncResult.message}</p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

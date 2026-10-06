@@ -126,6 +126,29 @@ export async function sendAppSheetAction(
   }
 }
 
+export async function syncMasterDriversToDataTruk2(): Promise<{
+  success: boolean;
+  message?: string;
+  count?: number;
+  updated?: Array<{ id: string; oldName: string; newName: string }>;
+}> {
+  try {
+    const res = await fetch('/api/appsheet/sync-master-drivers', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    const data = await res.json();
+    return data;
+  } catch (err: any) {
+    return {
+      success: false,
+      message: err.message || 'Gagal menyinkronkan master sopir ke Data Truk 2',
+    };
+  }
+}
+
 // Initial state getters
 export function getLocalUsers(): UserRecord[] {
   try {
@@ -159,12 +182,12 @@ export function getLocalTrucks(): TruckRecord[] {
         } else if (!kap || isNaN(Number(kap))) {
           kap = '28';
         }
-        const firstName = t.namaSopir ? t.namaSopir.trim().split(/\s+/)[0] : '';
+        const cleanSopir = t.namaSopir ? t.namaSopir.trim() : '';
         return {
           ...t,
           depo: t.depo || 'Karawang',
           kapasitas: kap,
-          namaSopir: firstName || t.namaSopir,
+          namaSopir: cleanSopir,
           kesiapan: t.kesiapan || (t.status === 'Nonaktif' ? 'Tidak Ready' : 'Ready'),
           keterangan: t.keterangan || '',
         };

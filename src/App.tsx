@@ -157,6 +157,14 @@ export default function App() {
     }, 3500);
   }, []);
 
+  // Smooth White Floating Update Modal: Loading -> Success -> Redirect to WhatsApp
+  const [floatingUpdateModal, setFloatingUpdateModal] = useState<{
+    show: boolean;
+    status: 'loading' | 'success';
+    title: string;
+    subtitle: string;
+  } | null>(null);
+
   // Add ESC key listener for floating fleet modal
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -390,13 +398,24 @@ export default function App() {
   // Trucks belonging strictly to current context (for Quick Confirm card)
   const currentContextTrucks = useMemo(() => {
     if (activeUser.role === 'transporter') {
-      return trucks.filter((t) => t.transporter === activeUser.kodeTransporter);
+      return trucks.filter((t) => {
+        if (t.transporter !== activeUser.kodeTransporter) return false;
+        if (activeUser.depo && (t.depo || 'Karawang').toLowerCase() !== activeUser.depo.toLowerCase()) {
+          return false;
+        }
+        return true;
+      });
     }
-    if (selectedVendorFilter !== 'ALL') {
-      return trucks.filter((t) => t.transporter === selectedVendorFilter);
-    }
-    return trucks;
-  }, [trucks, activeUser, selectedVendorFilter]);
+    return trucks.filter((t) => {
+      if (selectedVendorFilter !== 'ALL' && t.transporter !== selectedVendorFilter) {
+        return false;
+      }
+      if (depoFilter !== 'ALL' && (t.depo || 'Karawang').toLowerCase() !== depoFilter.toLowerCase()) {
+        return false;
+      }
+      return true;
+    });
+  }, [trucks, activeUser, selectedVendorFilter, depoFilter]);
 
   // Handler to update a single truck
   const handleUpdateTruck = async (updatedTruck: TruckRecord): Promise<boolean> => {
@@ -427,7 +446,11 @@ export default function App() {
     });
 
     if (syncMode === 'appsheet') {
-      sendAppSheetAction('updateTruck', { truck: truckWithTimestamp });
+      sendAppSheetAction('updateTruck', { truck: truckWithTimestamp }).then((res) => {
+        if (!res.success && res.message) {
+          showToast(`Sinkronisasi AppSheet: ${res.message}`, 'error');
+        }
+      });
     } else if (gasUrl) {
       sendGasAction(gasUrl, { action: 'updateTruck', truck: truckWithTimestamp });
     }
@@ -618,13 +641,29 @@ export default function App() {
       return;
     }
 
+    // 1. Tampilkan modal mengambang putih mulus (Fase Loading)
+    setFloatingUpdateModal({
+      show: true,
+      status: 'loading',
+      title: 'Memproses Pembaruan Data...',
+      subtitle: 'Menyimpan data armada ke database server...',
+    });
+
     setIsConfirmingAll(true);
     const targetTransporter =
       activeUser.role === 'transporter' ? activeUser.kodeTransporter : selectedVendorFilter;
+    const targetDepo =
+      activeUser.role === 'transporter' ? activeUser.depo : (depoFilter !== 'ALL' ? depoFilter : null);
     const timestamp = formatWIBDateTime();
 
+    const isTargetScope = (t: TruckRecord) => {
+      if (targetTransporter !== 'ALL' && t.transporter !== targetTransporter) return false;
+      if (targetDepo && (t.depo || 'Karawang').toLowerCase() !== targetDepo.toLowerCase()) return false;
+      return true;
+    };
+
     const nextTrucks = trucks.map((t) => {
-      if (targetTransporter === 'ALL' || t.transporter === targetTransporter) {
+      if (isTargetScope(t)) {
         return { ...t, terakhirUpdate: timestamp };
       }
       return t;
@@ -638,42 +677,60 @@ export default function App() {
       if (targetTransporter === 'ALL') {
         ['TM', 'RJTM', 'WSS', 'SBR'].forEach((code) => {
           next[code] = timestamp;
+          if (targetDepo) next[`${code}_${targetDepo}`] = timestamp;
         });
       } else {
         next[targetTransporter] = timestamp;
+        if (targetDepo) next[`${targetTransporter}_${targetDepo}`] = timestamp;
       }
       saveStoredConfirmedTimes(next);
       return next;
     });
 
     if (syncMode === 'appsheet') {
-      const affected = nextTrucks.filter(
-        (t) => targetTransporter === 'ALL' || t.transporter === targetTransporter
-      );
-      await sendAppSheetAction('confirmAll', { trucks: affected });
+      const affected = nextTrucks.filter(isTargetScope);
+      const syncRes = await sendAppSheetAction('confirmAll', { trucks: affected });
+      if (!syncRes.success && syncRes.message) {
+        showToast(`Sinkronisasi AppSheet: ${syncRes.message}`, 'error');
+      }
     }
 
     setIsConfirmingAll(false);
 
-    // If Transporter: Automatically open WhatsApp with complete structured breakdown!
+    // If Transporter: Transform to success phase then auto-navigate to native WhatsApp app!
     if (activeUser.role === 'transporter') {
-      const targetTrucks = nextTrucks.filter((t) => {
-        if (t.transporter !== activeUser.kodeTransporter) return false;
-        if (activeUser.depo && (t.depo || 'Karawang').toLowerCase() !== activeUser.depo.toLowerCase()) {
-          return false;
-        }
-        return true;
-      });
+      const targetTrucks = nextTrucks.filter(isTargetScope);
       const waText = generateWhatsAppMessage(
         activeUser.namaTransporter,
         activeUser.kodeTransporter,
         targetTrucks,
         activeUser.depo
       );
-      openWhatsAppWithText(waText);
-      showToast('✓ Data berhasil disimpan & diarahkan ke WhatsApp!', 'success');
+
+      // 2. Berubah ke Fase Berhasil
+      setFloatingUpdateModal({
+        show: true,
+        status: 'success',
+        title: 'Data Berhasil Disimpan!',
+        subtitle: 'Membuka aplikasi WhatsApp...',
+      });
+
+      // 3. Jeda visual halus (650ms), lalu langsung luncurkan aplikasi WhatsApp
+      setTimeout(() => {
+        openWhatsAppWithText(waText);
+        setFloatingUpdateModal(null);
+      }, 650);
     } else {
-      showToast('✓ Seluruh data armada berhasil disimpan ke server!', 'success');
+      // Admin: Tampilkan status berhasil lalu tutup
+      setFloatingUpdateModal({
+        show: true,
+        status: 'success',
+        title: 'Data Berhasil Disimpan!',
+        subtitle: 'Seluruh armada berhasil diperbarui ke server.',
+      });
+      setTimeout(() => {
+        setFloatingUpdateModal(null);
+      }, 750);
     }
   };
 
@@ -769,6 +826,9 @@ export default function App() {
 
   const activeTransporterCode =
     activeUser.role === 'transporter' ? activeUser.kodeTransporter : selectedVendorFilter;
+  const activeTransporterDepo =
+    activeUser.role === 'transporter' ? activeUser.depo : (depoFilter !== 'ALL' ? depoFilter : '');
+  const depoKey = activeTransporterDepo ? `${activeTransporterCode}_${activeTransporterDepo}` : '';
   const activeTransporterName =
     activeUser.role === 'transporter'
       ? activeUser.namaTransporter
@@ -776,7 +836,9 @@ export default function App() {
       ? 'Semua Transporter'
       : TRANSPORTER_NAMES[selectedVendorFilter] || selectedVendorFilter;
   const currentLastConfirmed =
-    lastConfirmedTimes[activeTransporterCode] || 'Belum dikonfirmasi hari ini';
+    (depoKey && lastConfirmedTimes[depoKey]) ||
+    lastConfirmedTimes[activeTransporterCode] ||
+    'Belum dikonfirmasi hari ini';
 
   const isAdmin = activeUser.role === 'admin';
 
@@ -1105,6 +1167,46 @@ export default function App() {
               />
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* Smooth White Floating Modal: Loading -> Success -> Auto-Redirect to WhatsApp */}
+      {floatingUpdateModal && floatingUpdateModal.show && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs select-none animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl p-6 sm:p-7 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border border-slate-100 max-w-xs sm:max-w-sm w-full flex flex-col items-center text-center space-y-4 transform animate-in zoom-in-95 duration-200">
+            {floatingUpdateModal.status === 'loading' ? (
+              <div className="relative flex items-center justify-center py-2">
+                <div className="w-16 h-16 rounded-full border-4 border-slate-100 border-t-[#E50914] animate-spin" />
+                <div className="absolute text-xl">🚚</div>
+              </div>
+            ) : (
+              <div className="w-16 h-16 rounded-full bg-emerald-50 border-2 border-emerald-500 flex items-center justify-center text-emerald-600 shadow-lg shadow-emerald-500/20 py-2 animate-in zoom-in-75 duration-200">
+                <svg className="w-9 h-9 fill-none stroke-current" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.8" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            )}
+
+            <div>
+              <h3 className="text-base sm:text-lg font-black tracking-tight text-slate-900">
+                {floatingUpdateModal.title}
+              </h3>
+              <p className="text-xs text-slate-500 font-medium mt-1">
+                {floatingUpdateModal.subtitle}
+              </p>
+            </div>
+
+            {/* Visual Indicator Line */}
+            <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-300 ${
+                  floatingUpdateModal.status === 'loading'
+                    ? 'w-2/3 bg-[#E50914] animate-pulse'
+                    : 'w-full bg-emerald-500'
+                }`}
+              />
+            </div>
           </div>
         </div>
       )}

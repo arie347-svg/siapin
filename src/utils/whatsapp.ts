@@ -97,11 +97,51 @@ export function generateMasterAdminWhatsAppMessage(
   return text;
 }
 
-export function openWhatsAppWithText(message: string): void {
+export function getWhatsAppAppUrl(message: string): string {
   const encoded = encodeURIComponent(message);
-  const url = `https://api.whatsapp.com/send?text=${encoded}`;
-  const opened = window.open(url, '_blank');
-  if (!opened || opened.closed || typeof opened.closed === 'undefined') {
-    window.location.href = url;
+  return `whatsapp://send?text=${encoded}`;
+}
+
+export function getWhatsAppWebUrl(message: string): string {
+  const encoded = encodeURIComponent(message);
+  return `https://wa.me/?text=${encoded}`;
+}
+
+export function openWhatsAppWithText(message: string): boolean {
+  const encoded = encodeURIComponent(message);
+  const appUrl = `whatsapp://send?text=${encoded}`;
+  const webUrl = `https://wa.me/?text=${encoded}`;
+
+  // Auto-copy message text to clipboard for user convenience
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(message).catch(() => {});
+    }
+  } catch {}
+
+  // 1. Direct Native WhatsApp App Dispatch via link click
+  // whatsapp:// is a native OS protocol scheme that opens the WhatsApp app directly
+  try {
+    const a = document.createElement('a');
+    a.href = appUrl;
+    // Do NOT set target="_blank" for custom protocol schemes to prevent blank tabs
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    return true;
+  } catch {
+    // 2. Fallback to universal web link
+    try {
+      const a = document.createElement('a');
+      a.href = webUrl;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      return true;
+    } catch {
+      return false;
+    }
   }
 }

@@ -97,7 +97,7 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
       const next = { ...prev };
       trucks.forEach((t) => {
         const cleanKap = String(t.kapasitas || '28').replace(/\D/g, '') || '28';
-        const cleanSopir = (t.namaSopir || '').trim().split(/\s+/)[0] || '';
+        const cleanSopir = (t.namaSopir || '').trim();
         const cleanKesiapan: ReadinessStatus = t.kesiapan || (t.status === 'Nonaktif' ? 'Tidak Ready' : 'Ready');
         const cleanKeterangan = t.keterangan || '';
         const cleanDepo = t.depo || 'Karawang';
