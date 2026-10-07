@@ -71,27 +71,28 @@ function getDepoAbbreviation(depo: string): string {
   return 'KRW';
 }
 
-function extractDriverCoreName(name: string): string {
-  if (!name) return '';
+function cleanDriverNameKeepFull(name: string): string {
+  if (!name || !name.trim()) return '';
   return name
     .toLowerCase()
     .replace(/\b(pt\.?|tunas|muda|roda|jagat|mas|wahana|sumber|sakti|sari|bumi|raya)\b/gi, ' ')
     .replace(/\b(tm|rjtm|wss|sbr)\b/gi, ' ')
     .replace(/\b(karawang|baros|cirebon|krw|brs|crb|md-?d|md)\b/gi, ' ')
-    .replace(/\b[a-z]\b/gi, ' ')
-    .replace(/[^a-z0-9]/gi, ' ')
+    .replace(/\b(pak|bapak|bpk|driver|sopir)\b/gi, ' ')
+    .replace(/[^a-z0-9\s]/gi, ' ')
+    .replace(/\s+/g, ' ')
     .trim()
-    .split(/\s+/)[0] || '';
+    .toUpperCase();
 }
 
 function formatDriverNameStandard(rawName: string, transporter: string, depo?: string): string {
   if (!rawName || !rawName.trim()) return '';
   const transCode = normalizeTransporterCode(transporter);
   const depoAbbr = getDepoAbbreviation(depo || '');
-  const core = extractDriverCoreName(rawName);
-  if (!core) return '';
+  const clean = cleanDriverNameKeepFull(rawName);
+  if (!clean) return '';
 
-  return `${core.toUpperCase()} ${transCode} ${depoAbbr}`;
+  return `${clean} ${transCode} ${depoAbbr}`;
 }
 
 // In-memory cache for Data Truk 2 to avoid redundant round-trips
@@ -111,61 +112,96 @@ async function getCachedDataTrukRows(): Promise<any[]> {
   return dataTrukCache ? dataTrukCache.rows : [];
 }
 
-// Update driver in master table "Data Truk 2" (DocId=1zE6zs-UQcKMJN0AlNBMNWPKKjzEIRLKb)
+// Update driver in master table "Data Truk 2" (Key = Nama Driver, anchored by ID)
 async function syncDriverToDataTruk2(
   driverNameFormatted: string,
   originalName?: string,
   transporter?: string,
-  status: string = 'Aktif'
+  status: string = 'Aktif',
+  targetId?: string
 ) {
   if (!driverNameFormatted || !driverNameFormatted.trim()) return;
   try {
     const rawRows = await getCachedDataTrukRows();
     if (!Array.isArray(rawRows)) return;
 
-    const core = extractDriverCoreName(driverNameFormatted);
-    if (!core) return;
+    const cleanTarget = cleanDriverNameKeepFull(driverNameFormatted);
+    if (!cleanTarget) return;
     const transCode = transporter ? normalizeTransporterCode(transporter).toLowerCase() : '';
-
-    // Find row in Data Truk 2 matching core name AND STRICTLY Rute === 'MD-D' (NEVER overwrite non-MD-D such as AHM-MD!)
-    const matched = rawRows.find((r: any) => {
-      const route = String(r['Rute'] || '').trim().toUpperCase();
-      if (route !== 'MD-D') return false; // PROTEKSI: Abaikan rute selain MD-D
-
-      const existingName = String(r['Nama Driver'] || '');
-      if (!existingName) return false;
-      const existingCore = extractDriverCoreName(existingName);
-      if (existingCore === core) {
-        const lower = existingName.toLowerCase();
-        if (transCode && (lower.includes(transCode) || lower.includes('wss') || lower.includes('tm') || lower.includes('rjtm') || lower.includes('sbr'))) {
-          return lower.includes(transCode);
-        }
-        return true;
-      }
-      return false;
-    });
-
     const targetStatus = status || 'Aktif';
-    if (matched && matched.ID) {
-      const needsNameUpdate = matched['Nama Driver'] !== driverNameFormatted;
-      const needsStatusUpdate = matched['Status'] !== targetStatus;
-      const needsRouteUpdate = matched['Rute'] !== 'MD-D';
 
-      if (needsNameUpdate || needsStatusUpdate || needsRouteUpdate) {
-        // Edit existing driver record strictly within MD-D route
-        await callAppSheetApi('Edit', [{
-          'ID': matched.ID,
+    // 1. Patokan Utama: Cek kecocokan ID jika targetId tersedia
+    let matched: any = null;
+    if (targetId && targetId.trim()) {
+      matched = rawRows.find((r: any) => {
+        const route = String(r['Rute'] || '').trim().toUpperCase();
+        if (route !== 'MD-D') return false;
+        return String(r['ID'] || '').trim() === targetId.trim();
+      });
+    }
+
+    // 2. Jika belum cocok by ID, cari baris yang Nama Driver persis sama (case-insensitive)
+    if (!matched) {
+      matched = rawRows.find((r: any) => {
+        const route = String(r['Rute'] || '').trim().toUpperCase();
+        if (route !== 'MD-D') return false;
+
+        const existingName = String(r['Nama Driver'] || '').trim();
+        if (!existingName) return false;
+
+        // Cocokkan nama persis dengan nama berformat atau nama asli
+        if (existingName.toLowerCase() === driverNameFormatted.toLowerCase()) return true;
+        if (originalName && existingName.toLowerCase() === originalName.trim().toLowerCase()) return true;
+
+        // Cocokkan nama lengkap bersih sama persis dan vendor sama
+        if (cleanDriverNameKeepFull(existingName) === cleanTarget) {
+          const lower = existingName.toLowerCase();
+          if (transCode && (lower.includes(transCode) || lower.includes('wss') || lower.includes('tm') || lower.includes('rjtm') || lower.includes('sbr'))) {
+            return lower.includes(transCode);
+          }
+          return true;
+        }
+        return false;
+      });
+    }
+
+    if (matched) {
+      const currentAppSheetKey = String(matched['Nama Driver'] || '').trim();
+      const existingId = matched['ID'] || targetId || ('DRV-' + Math.random().toString(36).substring(2, 9).toUpperCase());
+
+      // Jika Key saat ini di AppSheet sudah sama persis dengan nama format
+      if (currentAppSheetKey === driverNameFormatted) {
+        if (matched['Status'] !== targetStatus || matched['Rute'] !== 'MD-D') {
+          await callAppSheetApi('Edit', [{
+            'Nama Driver': driverNameFormatted,
+            'Status': targetStatus,
+            'Rute': 'MD-D',
+            'ID': existingId,
+          }], 'Data Truk 2');
+          matched['Status'] = targetStatus;
+          matched['Rute'] = 'MD-D';
+        }
+      } else {
+        // Nama berbeda (nama bebas diganti menjadi format standar)
+        // Karena Nama Driver adalah Key di AppSheet: Add row baru terformat dengan ID sama, lalu Delete key lama
+        const newRow = {
+          'ID': existingId,
           'Nama Driver': driverNameFormatted,
           'Status': targetStatus,
           'Rute': 'MD-D',
-        }], 'Data Truk 2');
+        };
+        await callAppSheetApi('Add', [newRow], 'Data Truk 2');
+        if (currentAppSheetKey) {
+          await callAppSheetApi('Delete', [{ 'Nama Driver': currentAppSheetKey }], 'Data Truk 2').catch(() => {});
+        }
         matched['Nama Driver'] = driverNameFormatted;
         matched['Status'] = targetStatus;
         matched['Rute'] = 'MD-D';
+        matched['ID'] = existingId;
       }
     } else {
-      // Jika tidak ditemukan di rute MD-D, BUAT BARU khusus dengan rute MD-D
-      const newDriverId = Math.random().toString(36).substring(2, 10);
+      // Tidak ditemukan data yang cocok: OTOMATIS TAMBAH BARU (JANGAN OVERWRITE ORANG LAIN)
+      const newDriverId = targetId || ('DRV-' + Math.random().toString(36).substring(2, 9).toUpperCase());
       const newRow = {
         'ID': newDriverId,
         'Nama Driver': driverNameFormatted,
@@ -180,9 +216,9 @@ async function syncDriverToDataTruk2(
   }
 }
 
-// Ultra-fast batch synchronization to Data Truk 2 (1 single batch call instead of N calls)
+// Ultra-safe batch synchronization to Data Truk 2 (Anchor ID, Key = Nama Driver)
 async function batchSyncDriversToDataTruk2(
-  trucks: Array<{ namaSopir: string; transporter: string; depo?: string; status?: string }>
+  trucks: Array<{ namaSopir: string; transporter: string; depo?: string; status?: string; id?: string }>
 ) {
   try {
     const rawRows = await getCachedDataTrukRows();
@@ -190,54 +226,83 @@ async function batchSyncDriversToDataTruk2(
 
     const edits: any[] = [];
     const adds: any[] = [];
-    const seenCores = new Set<string>();
+    const deletes: any[] = [];
+    const seenNames = new Set<string>();
 
     for (const t of trucks) {
       if (!t || !t.namaSopir || !t.transporter) continue;
       const formattedSopir = formatDriverNameStandard(t.namaSopir, t.transporter, t.depo);
       if (!formattedSopir) continue;
-      const core = extractDriverCoreName(formattedSopir);
-      if (!core || seenCores.has(core)) continue;
-      seenCores.add(core);
+      if (seenNames.has(formattedSopir.toLowerCase())) continue;
+      seenNames.add(formattedSopir.toLowerCase());
 
+      const cleanTarget = cleanDriverNameKeepFull(formattedSopir);
       const transCode = t.transporter ? normalizeTransporterCode(t.transporter).toLowerCase() : '';
       const targetStatus = t.status || 'Aktif';
+      const targetId = t.id;
 
-      // Find strictly with Rute === 'MD-D'
-      const matched = rawRows.find((r: any) => {
-        const route = String(r['Rute'] || '').trim().toUpperCase();
-        if (route !== 'MD-D') return false;
+      // 1. Patokan ID
+      let matched: any = null;
+      if (targetId && targetId.trim()) {
+        matched = rawRows.find((r: any) => {
+          const route = String(r['Rute'] || '').trim().toUpperCase();
+          if (route !== 'MD-D') return false;
+          return String(r['ID'] || '').trim() === targetId.trim();
+        });
+      }
 
-        const existingName = String(r['Nama Driver'] || '');
-        if (!existingName) return false;
-        const existingCore = extractDriverCoreName(existingName);
-        if (existingCore === core) {
-          const lower = existingName.toLowerCase();
-          if (transCode && (lower.includes(transCode) || lower.includes('wss') || lower.includes('tm') || lower.includes('rjtm') || lower.includes('sbr'))) {
-            return lower.includes(transCode);
+      // 2. Patokan Nama Persis
+      if (!matched) {
+        matched = rawRows.find((r: any) => {
+          const route = String(r['Rute'] || '').trim().toUpperCase();
+          if (route !== 'MD-D') return false;
+          const existingName = String(r['Nama Driver'] || '').trim();
+          if (existingName.toLowerCase() === formattedSopir.toLowerCase()) return true;
+          if (cleanTarget && cleanDriverNameKeepFull(existingName) === cleanTarget) {
+            const lower = existingName.toLowerCase();
+            if (transCode && (lower.includes(transCode) || lower.includes('wss') || lower.includes('tm') || lower.includes('rjtm') || lower.includes('sbr'))) {
+              return lower.includes(transCode);
+            }
+            return true;
           }
-          return true;
-        }
-        return false;
-      });
+          return false;
+        });
+      }
 
-      if (matched && matched.ID) {
-        const needsName = matched['Nama Driver'] !== formattedSopir;
-        const needsStatus = matched['Status'] !== targetStatus;
-        const needsRoute = matched['Rute'] !== 'MD-D';
-        if (needsName || needsStatus || needsRoute) {
-          edits.push({
-            'ID': matched.ID,
+      if (matched) {
+        const currentAppSheetKey = String(matched['Nama Driver'] || '').trim();
+        const existingId = matched['ID'] || targetId || ('DRV-' + Math.random().toString(36).substring(2, 9).toUpperCase());
+
+        if (currentAppSheetKey === formattedSopir) {
+          if (matched['Status'] !== targetStatus || matched['Rute'] !== 'MD-D') {
+            edits.push({
+              'Nama Driver': formattedSopir,
+              'Status': targetStatus,
+              'Rute': 'MD-D',
+              'ID': existingId,
+            });
+            matched['Status'] = targetStatus;
+            matched['Rute'] = 'MD-D';
+          }
+        } else {
+          // Re-keying aman: Add row baru dengan ID sama, Delete key lama
+          adds.push({
+            'ID': existingId,
             'Nama Driver': formattedSopir,
             'Status': targetStatus,
             'Rute': 'MD-D',
           });
+          if (currentAppSheetKey) {
+            deletes.push({ 'Nama Driver': currentAppSheetKey });
+          }
           matched['Nama Driver'] = formattedSopir;
           matched['Status'] = targetStatus;
           matched['Rute'] = 'MD-D';
+          matched['ID'] = existingId;
         }
       } else {
-        const newId = Math.random().toString(36).substring(2, 10);
+        // Otomatis tambah baru
+        const newId = targetId || ('DRV-' + Math.random().toString(36).substring(2, 9).toUpperCase());
         const newRow = {
           'ID': newId,
           'Nama Driver': formattedSopir,
@@ -249,14 +314,17 @@ async function batchSyncDriversToDataTruk2(
       }
     }
 
-    if (edits.length > 0) {
-      await callAppSheetApi('Edit', edits, 'Data Truk 2');
-    }
     if (adds.length > 0) {
-      await callAppSheetApi('Add', adds, 'Data Truk 2');
+      await callAppSheetApi('Add', adds, 'Data Truk 2').catch((e) => console.warn('Batch add Data Truk 2 notice:', e.message));
+    }
+    if (edits.length > 0) {
+      await callAppSheetApi('Edit', edits, 'Data Truk 2').catch((e) => console.warn('Batch edit Data Truk 2 notice:', e.message));
+    }
+    if (deletes.length > 0) {
+      await callAppSheetApi('Delete', deletes, 'Data Truk 2').catch((e) => console.warn('Batch delete old keys Data Truk 2 notice:', e.message));
     }
   } catch (err: any) {
-    console.warn('Batch sync to Data Truk 2 note:', err.message);
+    console.warn('Batch sync drivers notice:', err.message);
   }
 }
 
@@ -635,7 +703,7 @@ app.post('/api/appsheet/sync-master-drivers', async (_req: Request, res: Respons
       const trans = String(mdRow['Transporter'] || '');
       const depo = String(mdRow['Lokasi Audit'] || mdRow['Depo'] || '');
       const targetName = formatDriverNameStandard(rawSopir, trans, depo);
-      const core = extractDriverCoreName(rawSopir);
+      const core = cleanDriverNameKeepFull(rawSopir);
       if (!core || !targetName) continue;
 
       const transCode = normalizeTransporterCode(trans).toLowerCase();
@@ -646,7 +714,7 @@ app.post('/api/appsheet/sync-master-drivers', async (_req: Request, res: Respons
         if (route !== 'MD-D') return false; // PROTEKSI: Abaikan rute selain MD-D
 
         const existingName = String(t['Nama Driver'] || '');
-        const tCore = extractDriverCoreName(existingName);
+        const tCore = cleanDriverNameKeepFull(existingName);
         if (tCore === core) {
           const lower = existingName.toLowerCase();
           if (transCode && (lower.includes(transCode) || lower.includes('wss') || lower.includes('tm') || lower.includes('rjtm') || lower.includes('sbr'))) {
@@ -830,6 +898,53 @@ app.get('/api/snapshots', async (_req: Request, res: Response) => {
       .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d))
       .sort()
       .reverse();
+    res.json({ success: true, dates, snapshots });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Get snapshots for a date range (Multi-date batch fetch)
+app.get('/api/snapshots/range', async (req: Request, res: Response) => {
+  try {
+    const start = String(req.query.start || '').trim();
+    const end = String(req.query.end || '').trim();
+    if (!start || !end) {
+      return res.status(400).json({ success: false, message: 'Parameter start dan end wajib diisi (YYYY-MM-DD)' });
+    }
+
+    const files = fs.existsSync(SNAPSHOTS_DIR) ? fs.readdirSync(SNAPSHOTS_DIR).filter((f) => f.endsWith('.json')) : [];
+    const snapshots: Record<string, any> = {};
+    const datesSet = new Set<string>();
+
+    files.forEach((f) => {
+      const d = f.replace('.json', '');
+      if (d >= start && d <= end) {
+        datesSet.add(d);
+        try {
+          snapshots[d] = JSON.parse(fs.readFileSync(path.join(SNAPSHOTS_DIR, f), 'utf-8'));
+        } catch {}
+      }
+    });
+
+    // Check Cloud Firestore if enabled
+    if (firestoreDb) {
+      try {
+        const { collection, getDocs } = await import('firebase/firestore');
+        const querySnap = await getDocs(collection(firestoreDb, 'daily_snapshots'));
+        querySnap.forEach((docSnap) => {
+          const d = docSnap.id;
+          if (d >= start && d <= end && !snapshots[d]) {
+            datesSet.add(d);
+            snapshots[d] = docSnap.data();
+          }
+        });
+      } catch (fErr: any) {
+        console.warn('Firestore range query notice:', fErr.message);
+      }
+    }
+
+    const dates = Array.from(datesSet).sort();
     res.json({ success: true, dates, snapshots });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
