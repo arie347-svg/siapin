@@ -24,18 +24,15 @@ export function generateWhatsAppMessage(
     ? `${transporterCode} (${depo})`
     : transporterCode;
 
-  let text = `Tanggal : ${dateStr}\n`;
-  text += `Transporter : ${transporterInfo}\n\n`;
+  let text = `${dateStr}\n`;
+  text += `${transporterInfo}\n\n`;
 
-  text += `RINGKASAN KESIAPAN TRUK :\n`;
-  text += `• Total Armada: ${trucks.length} Unit\n`;
-  text += `• Ready: ${readyList.length} Unit\n`;
-  text += `• Tidak Ready: ${tidakReadyList.length} Unit\n\n`;
+  text += `Total Armada : ${trucks.length} truk\n`;
+  text += `Ready : ${readyList.length} truk\n`;
+  text += `Tidak Ready : ${tidakReadyList.length} truk`;
 
-  text += `DAFTAR TRUK TIDAK READY :\n`;
-  if (tidakReadyList.length === 0) {
-    text += `-(Semua unit berstatus Ready)-`;
-  } else {
+  if (tidakReadyList.length > 0) {
+    text += `\n\nDAFTAR TRUK TIDAK READY :\n`;
     tidakReadyList.forEach((t, i) => {
       const nopol = t.nomorPolisi || '-';
       const sopir = t.namaSopir ? t.namaSopir : '-';
@@ -44,7 +41,7 @@ export function generateWhatsAppMessage(
     });
   }
 
-  return text;
+  return text.trimEnd();
 }
 
 export function generateMasterAdminWhatsAppMessage(
