@@ -49,15 +49,15 @@ export const QuickConfirmCard: React.FC<QuickConfirmCardProps> = ({
 
           <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-600">
             <span>
-              Total: <strong className="text-slate-900">{totalTrucks}</strong> Unit
+              Total: <strong className="text-slate-900">{totalTrucks}</strong> Truk
             </span>
             <span className="text-slate-300">|</span>
             <span className="text-blue-700">
-              Ready: <strong>{readyTrucks}</strong> Unit
+              Ready: <strong>{readyTrucks}</strong> Truk
             </span>
             <span className="text-slate-300">|</span>
             <span className="text-red-600">
-              Tidak Ready: <strong>{tidakReadyTrucks}</strong> Unit
+              Tidak Ready: <strong>{tidakReadyTrucks}</strong> Truk
             </span>
             <span className="text-slate-300">|</span>
             <span className="text-slate-700">

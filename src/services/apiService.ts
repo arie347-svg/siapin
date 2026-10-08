@@ -2,7 +2,7 @@ import { TruckRecord, UserRecord, DailyHistoryMap, TruckDailyHistoryEntry, Readi
 import { INITIAL_TRUCKS, INITIAL_USERS } from './mockData';
 import { getWIBDateString } from '../utils/timeUtils';
 
-const STORAGE_KEYS = {
+export const STORAGE_KEYS = {
   USERS: 'fleet_users_v1',
   TRUCKS: 'fleet_trucks_v1',
   GAS_URL: 'fleet_gas_url_v1',
@@ -173,8 +173,12 @@ export function getLocalTrucks(): TruckRecord[] {
     const raw = localStorage.getItem(STORAGE_KEYS.TRUCKS);
     if (raw) {
       const parsed: TruckRecord[] = JSON.parse(raw);
+      // Filter out dummy TRK- trucks if real trucks exist
+      const realTrucks = parsed.filter((t) => !t.id?.startsWith('TRK-') && Boolean(t.nomorPolisi));
+      const targetList = realTrucks.length > 0 ? realTrucks : parsed;
+
       // Ensure capacities are numbers only and driver name uses first name only
-      const sanitized = parsed.map((t) => {
+      const sanitized = targetList.map((t) => {
         let kap = String(t.kapasitas || '28').trim();
         const digits = kap.replace(/\D/g, '');
         if (digits) {
@@ -202,10 +206,12 @@ export function getLocalTrucks(): TruckRecord[] {
 
 export function saveLocalTrucks(trucks: TruckRecord[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.TRUCKS, JSON.stringify(trucks));
+    const cleanTrucks = trucks.filter((t) => !t.id?.startsWith('TRK-') && Boolean(t.nomorPolisi));
+    const targetToSave = cleanTrucks.length > 0 ? cleanTrucks : trucks;
+    localStorage.setItem(STORAGE_KEYS.TRUCKS, JSON.stringify(targetToSave));
     // Automatically record today's snapshot
     const todayStr = getWIBDateString();
-    recordDailySnapshot(todayStr, trucks);
+    recordDailySnapshot(todayStr, targetToSave);
   } catch (e) {
     console.error('Failed to save trucks', e);
   }
@@ -231,9 +237,11 @@ export function saveStoredDailyHistory(history: DailyHistoryMap): void {
 
 export function recordDailySnapshot(dateStr: string, trucks: TruckRecord[]): void {
   try {
+    const cleanTrucks = trucks.filter((t) => !t.id?.startsWith('TRK-') && Boolean(t.nomorPolisi));
+    const targetSnapshot = cleanTrucks.length > 0 ? cleanTrucks : trucks;
     const history = getStoredDailyHistory();
     const dayMap: Record<string, TruckDailyHistoryEntry> = history[dateStr] || {};
-    trucks.forEach((t) => {
+    targetSnapshot.forEach((t) => {
       dayMap[t.id] = {
         kesiapan: t.kesiapan,
         keterangan: t.keterangan || '',
@@ -245,7 +253,7 @@ export function recordDailySnapshot(dateStr: string, trucks: TruckRecord[]): voi
     saveStoredDailyHistory(history);
 
     // Also persist permanently to Database Cloud/Server
-    saveSnapshotToDatabase(dateStr, trucks).catch(() => {});
+    saveSnapshotToDatabase(dateStr, targetSnapshot).catch(() => {});
   } catch (e) {
     console.error('Failed to record daily snapshot', e);
   }

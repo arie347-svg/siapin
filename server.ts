@@ -786,18 +786,39 @@ app.post('/api/appsheet/sync-master-drivers', async (_req: Request, res: Respons
 async function saveDailySnapshotInternal(dateStr: string, trucks: any[]) {
   try {
     const filePath = path.join(SNAPSHOTS_DIR, `${dateStr}.json`);
-    let existingTrucks: any[] = [];
-    if (fs.existsSync(filePath)) {
-      try {
-        const prev = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-        if (Array.isArray(prev.trucks)) existingTrucks = prev.trucks;
-      } catch {}
-    }
+    
+    // Filter out dummy/mock trucks (e.g. TRK-*)
+    const incomingClean = (Array.isArray(trucks) ? trucks : []).filter((t: any) => {
+      if (!t || !t.nomorPolisi) return false;
+      const idStr = String(t.id || '');
+      if (idStr.startsWith('TRK-')) return false;
+      return true;
+    });
 
-    const mergedMap = new Map<string, any>();
-    existingTrucks.forEach((t) => mergedMap.set(t.id || t.nomorPolisi, t));
-    trucks.forEach((t) => mergedMap.set(t.id || t.nomorPolisi, t));
-    const mergedList = Array.from(mergedMap.values());
+    let mergedList: any[] = [];
+
+    // If incoming clean trucks is a complete fleet (>= 100 units), use it as authoritative
+    if (incomingClean.length >= 100) {
+      mergedList = incomingClean;
+    } else {
+      let existingTrucks: any[] = [];
+      if (fs.existsSync(filePath)) {
+        try {
+          const prev = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+          if (Array.isArray(prev.trucks)) {
+            existingTrucks = prev.trucks.filter((t: any) => {
+              const idStr = String(t.id || '');
+              return !idStr.startsWith('TRK-') && Boolean(t.nomorPolisi);
+            });
+          }
+        } catch {}
+      }
+
+      const mergedMap = new Map<string, any>();
+      existingTrucks.forEach((t) => mergedMap.set(t.nomorPolisi || t.id, t));
+      incomingClean.forEach((t) => mergedMap.set(t.nomorPolisi || t.id, t));
+      mergedList = Array.from(mergedMap.values());
+    }
 
     const summary = {
       total: mergedList.length,
@@ -836,6 +857,118 @@ async function saveDailySnapshotInternal(dateStr: string, trucks: any[]) {
     console.warn('Snapshot internal note:', err.message);
   }
 }
+
+// Endpoint to reset all truck readiness to clean state (clean slate)
+app.post('/api/admin/reset-readiness-clean', async (_req: Request, res: Response) => {
+  try {
+    const rawRows = await callAppSheetApi('Find', [], currentTableName);
+    const rowsArray = Array.isArray(rawRows) ? rawRows : [];
+
+    const cleanTrucks = rowsArray.map((row: any) => {
+      const nomorPolisi = String(row['Nomor Polisi'] || '').trim().toUpperCase();
+      const rawId = String(row['ID'] || '').trim();
+      const id = nomorPolisi || rawId || String(row['_RowNumber'] || '').trim();
+      const transporter = normalizeTransporterCode(String(row['Transporter'] || ''));
+      const rawDepo = String(row['Lokasi Audit'] || row['Depo'] || '').trim();
+      const depo = rawDepo || 'Karawang';
+      const fullSopir = String(row['Nama Sopir'] || '').trim();
+      const namaSopir = formatDriverNameStandard(fullSopir, transporter, depo) || fullSopir;
+      const cleanKap = String(row['Kapasitas'] || '28').replace(/\D/g, '') || '28';
+      const rawStatus = String(row['Status Truk'] || row['Status'] || 'Aktif').trim();
+      const status = (rawStatus.toLowerCase() === 'nonaktif' || rawStatus.toLowerCase() === 'non-aktif')
+        ? 'Nonaktif'
+        : 'Aktif';
+      const isNonaktif = status === 'Nonaktif';
+      const kesiapan = isNonaktif ? 'Tidak Ready' : 'Ready';
+
+      return {
+        id,
+        transporter,
+        depo,
+        nomorPolisi,
+        namaSopir,
+        kapasitas: cleanKap,
+        status,
+        kesiapan,
+        keterangan: '',
+        terakhirUpdate: 'Belum update hari ini',
+      };
+    }).filter((t: any) => !t.id?.startsWith('TRK-') && Boolean(t.nomorPolisi));
+
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    const summary = {
+      total: cleanTrucks.length,
+      ready: cleanTrucks.filter((t: any) => t.kesiapan === 'Ready').length,
+      tidakReady: cleanTrucks.filter((t: any) => t.kesiapan === 'Tidak Ready').length,
+      aktif: cleanTrucks.filter((t: any) => t.status === 'Aktif').length,
+      nonaktif: cleanTrucks.filter((t: any) => t.status === 'Nonaktif').length,
+    };
+
+    const snapshotData = {
+      date: todayStr,
+      savedAt: new Date().toISOString(),
+      summary,
+      trucks: cleanTrucks,
+    };
+
+    const filePath = path.join(SNAPSHOTS_DIR, `${todayStr}.json`);
+    fs.writeFileSync(filePath, JSON.stringify(snapshotData, null, 2), 'utf-8');
+
+    if (firestoreDb) {
+      try {
+        const { doc, setDoc } = await import('firebase/firestore');
+        const ref = doc(firestoreDb, 'daily_snapshots', todayStr);
+        await setDoc(ref, snapshotData);
+      } catch (fErr: any) {
+        console.warn('Firestore reset sync note:', fErr.message);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Semua riwayat update kesiapan armada hari ini telah berhasil dibersihkan.',
+      trucks: cleanTrucks,
+      total: cleanTrucks.length,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Endpoint to completely wipe all historical snapshots from server and Cloud Firestore
+app.post('/api/admin/wipe-all-snapshots', async (_req: Request, res: Response) => {
+  try {
+    // 1. Wipe all local snapshot files
+    if (fs.existsSync(SNAPSHOTS_DIR)) {
+      const files = fs.readdirSync(SNAPSHOTS_DIR);
+      for (const f of files) {
+        try {
+          fs.unlinkSync(path.join(SNAPSHOTS_DIR, f));
+        } catch {}
+      }
+    }
+
+    // 2. Wipe all documents in Firestore daily_snapshots
+    if (firestoreDb) {
+      try {
+        const { collection, getDocs, deleteDoc, doc } = await import('firebase/firestore');
+        const snap = await getDocs(collection(firestoreDb, 'daily_snapshots'));
+        for (const d of snap.docs) {
+          await deleteDoc(doc(firestoreDb, 'daily_snapshots', d.id));
+        }
+      } catch (fErr: any) {
+        console.warn('Firestore wipe note:', fErr.message);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Seluruh arsip database tanggal-tanggal sebelumnya telah berhasil dihapus total dari database server dan Cloud Firestore.',
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 
 // Save or update snapshot in database
 app.post('/api/snapshots', async (req: Request, res: Response) => {

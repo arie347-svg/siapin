@@ -153,7 +153,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="max-w-7xl mx-auto px-2.5 sm:px-5 pb-1 text-[9.5px] sm:text-xs font-bold text-white/95 border-t border-white/15 pt-1">
         <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
           <span>
-            Total: <strong className="text-white underline decoration-white/40">{totalCount}</strong> Unit
+            Total: <strong className="text-white underline decoration-white/40">{totalCount}</strong> Truk
           </span>
           <span className="text-white/40">•</span>
           <span className="text-emerald-100 bg-black/15 px-1 py-0.2 rounded border border-white/10">

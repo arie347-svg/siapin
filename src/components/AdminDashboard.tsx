@@ -23,6 +23,7 @@ interface AdminDashboardProps {
   onOpenMasterWhatsApp?: () => void;
   onOpenFleetModal: (vendorCode?: string, depoName?: string) => void;
   onOpenChangePassword?: () => void;
+  onResetReadiness?: () => void;
   isSyncing?: boolean;
   hasCustomGasUrl?: boolean;
   lastConfirmedTimes?: Record<string, string>;
@@ -53,6 +54,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onForceSaveTodaySnapshot,
   onOpenFleetModal,
   onOpenChangePassword,
+  onResetReadiness,
   isSyncing = false,
   hasCustomGasUrl = false,
   lastConfirmedTimes = {},
@@ -69,7 +71,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [mobileReadinessFilter, setMobileReadinessFilter] = useState<'ALL' | 'Ready' | 'Tidak Ready'>('ALL');
   const [isFilterExpanded, setIsFilterExpanded] = useState(false);
 
-  // Hitungan statistik konsolidasi
+  // State Filter Khusus Halaman Ringkasan (Depo & Transporter)
+  const [summaryVendorFilter, setSummaryVendorFilter] = useState('ALL');
+  const [summaryDepoFilter, setSummaryDepoFilter] = useState('ALL');
+  const [isSummaryFilterOpen, setIsSummaryFilterOpen] = useState(false);
+
+  // Hitungan statistik konsolidasi global
   const totalTrucks = trucks.length;
   const activeTrucks = trucks.filter((t) => t.status === 'Aktif');
   const activeCount = activeTrucks.length;
@@ -82,6 +89,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Hitung total kapasitas unit armada aktif
   const totalKapasitasAktif = activeTrucks.reduce((sum, t) => sum + (parseInt(t.kapasitas, 10) || 0), 0);
+
+  // Filter & Statistik Khusus Halaman Ringkasan (Depo & Transporter)
+  const summaryTrucks = useMemo(() => {
+    return trucks.filter((t) => {
+      if (summaryVendorFilter !== 'ALL' && t.transporter !== summaryVendorFilter) {
+        return false;
+      }
+      if (summaryDepoFilter !== 'ALL' && (t.depo || 'Karawang').toLowerCase() !== summaryDepoFilter.toLowerCase()) {
+        return false;
+      }
+      return true;
+    });
+  }, [trucks, summaryVendorFilter, summaryDepoFilter]);
+
+  const summaryTotalTrucks = summaryTrucks.length;
+  const summaryActiveTrucks = summaryTrucks.filter((t) => t.status === 'Aktif');
+  const summaryActiveCount = summaryActiveTrucks.length;
+  const summaryNonaktifCount = summaryTotalTrucks - summaryActiveCount;
+
+  const summaryReadyCount = summaryActiveTrucks.filter((t) => t.kesiapan === 'Ready').length;
+  const summaryTidakReadyCount = summaryActiveCount - summaryReadyCount;
+  const summaryOverallPercent = summaryActiveCount > 0 ? Math.round((summaryReadyCount / summaryActiveCount) * 100) : 0;
+  const summaryKapasitasAktif = summaryActiveTrucks.reduce((sum, t) => sum + (parseInt(t.kapasitas, 10) || 0), 0);
 
   // Breakdown 4 Transporter
   const vendorList = ['TM', 'RJTM', 'WSS', 'SBR'];
@@ -199,10 +229,101 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* =================================================================== */}
         <div className="flex-1 w-full p-3 space-y-3">
           
-          {/* TAB 1: RINGKASAN (1 LAYAR TANPA SCROLL) */}
+          {/* TAB 1: RINGKASAN */}
           {mobileTab === 'ringkasan' && (
-            <div className="h-[calc(100dvh-140px)] flex flex-col justify-start space-y-3 animate-in fade-in duration-150">
+            <div className="min-h-[calc(100dvh-140px)] flex flex-col justify-start space-y-2.5 animate-in fade-in duration-150 pb-4">
               
+              {/* Header Tab Ringkasan: Judul, Status Filter Aktif, dan Icon Filter */}
+              <div className="flex items-center justify-between px-0.5 shrink-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-xs font-black text-slate-800 tracking-tight">
+                    Ringkasan Armada
+                  </span>
+                  {(summaryDepoFilter !== 'ALL' || summaryVendorFilter !== 'ALL') && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
+                      <span>{summaryDepoFilter !== 'ALL' ? summaryDepoFilter : 'Semua Depo'}</span>
+                      <span>•</span>
+                      <span>{summaryVendorFilter !== 'ALL' ? summaryVendorFilter : 'Semua Transporter'}</span>
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setIsSummaryFilterOpen(!isSummaryFilterOpen)}
+                    className={`p-2 rounded-xl transition cursor-pointer shadow-xs flex items-center justify-center ${
+                      isSummaryFilterOpen || summaryDepoFilter !== 'ALL' || summaryVendorFilter !== 'ALL'
+                        ? 'bg-red-600 text-white'
+                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
+                    title="Filter Depo & Transporter"
+                  >
+                    <svg className="w-4 h-4 fill-none stroke-current" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              {/* Collapsible Dropdown Filter Panel Ringkasan (Clean & Ringkas) */}
+              {isSummaryFilterOpen && (
+                <div className="bg-white rounded-2xl p-3 border border-slate-200/90 shadow-lg shadow-slate-200/60 space-y-2 animate-in fade-in duration-200 shrink-0">
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* Dropdown Depo */}
+                    <div>
+                      <label className="text-[9.5px] font-black uppercase text-slate-400 block mb-0.5">
+                        Depo:
+                      </label>
+                      <select
+                        value={summaryDepoFilter}
+                        onChange={(e) => setSummaryDepoFilter(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-800 focus:outline-hidden focus:border-red-500 cursor-pointer"
+                      >
+                        <option value="ALL">Semua Depo</option>
+                        <option value="Karawang">Depo Karawang</option>
+                        <option value="Baros">Depo Baros</option>
+                        <option value="Cirebon">Depo Cirebon</option>
+                      </select>
+                    </div>
+
+                    {/* Dropdown Transporter */}
+                    <div>
+                      <label className="text-[9.5px] font-black uppercase text-slate-400 block mb-0.5">
+                        Transporter:
+                      </label>
+                      <select
+                        value={summaryVendorFilter}
+                        onChange={(e) => setSummaryVendorFilter(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-800 focus:outline-hidden focus:border-red-500 cursor-pointer"
+                      >
+                        <option value="ALL">Semua Transporter</option>
+                        <option value="TM">TM - Tunas Muda</option>
+                        <option value="RJTM">RJTM - Roda Jagat</option>
+                        <option value="WSS">WSS - Wahana</option>
+                        <option value="SBR">SBR - Sari Bumi</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {(summaryDepoFilter !== 'ALL' || summaryVendorFilter !== 'ALL') && (
+                    <div className="flex justify-end pt-0.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSummaryDepoFilter('ALL');
+                          setSummaryVendorFilter('ALL');
+                        }}
+                        className="text-[10px] font-bold text-red-600 hover:text-red-700 cursor-pointer flex items-center gap-1"
+                      >
+                        <span>✕</span>
+                        <span>Reset Filter</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Hero Readiness Card */}
               <div className="bg-gradient-to-br from-red-600 to-rose-700 text-white rounded-2xl p-4 shadow-md shadow-red-500/15 relative overflow-hidden shrink-0">
                 <div className="relative z-10">
@@ -211,13 +332,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       Tingkat Kesiapan Armada
                     </span>
                     <span className="text-[11px] font-mono font-bold bg-white/20 px-2 py-0.5 rounded-full">
-                      {readyCount}/{activeCount} Aktif
+                      {summaryReadyCount}/{summaryActiveCount} Aktif
                     </span>
                   </div>
 
                   <div className="mt-2 flex items-baseline gap-2">
                     <span className="text-4xl font-black font-mono tracking-tight">
-                      {overallPercent}%
+                      {summaryOverallPercent}%
                     </span>
                     <span className="text-xs text-white/90 font-bold uppercase tracking-wider">
                       SIAP KIRIM
@@ -228,14 +349,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <div className="w-full h-2 bg-black/20 rounded-full overflow-hidden mt-3 p-0.5">
                     <div
                       className="h-full bg-white rounded-full transition-all duration-300"
-                      style={{ width: `${overallPercent}%` }}
+                      style={{ width: `${summaryOverallPercent}%` }}
                     />
                   </div>
 
                   <div className="flex items-center justify-between text-[11px] text-white/85 mt-2.5 font-medium">
-                    <span>Ready: <strong className="text-white font-bold">{readyCount}</strong></span>
-                    <span>Kendala: <strong className="text-white font-bold">{tidakReadyCount}</strong></span>
-                    <span>Nonaktif: <strong className="text-white font-bold">{nonaktifCount}</strong></span>
+                    <span>Ready: <strong className="text-white font-bold">{summaryReadyCount}</strong></span>
+                    <span>Kendala: <strong className="text-white font-bold">{summaryTidakReadyCount}</strong></span>
+                    <span>Nonaktif: <strong className="text-white font-bold">{summaryNonaktifCount}</strong></span>
                   </div>
                 </div>
               </div>
@@ -247,11 +368,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     Total Armada
                   </span>
                   <div className="mt-1 flex items-baseline gap-1">
-                    <span className="text-2xl font-black font-mono text-slate-900">{totalTrucks}</span>
-                    <span className="text-[11px] text-slate-500 font-bold">Unit</span>
+                    <span className="text-2xl font-black font-mono text-slate-900">{summaryTotalTrucks}</span>
+                    <span className="text-[11px] text-slate-500 font-bold">Truk</span>
                   </div>
                   <span className="text-[10px] text-slate-400 block mt-0.5">
-                    {activeCount} Aktif • {nonaktifCount} Non
+                    {summaryActiveCount} Aktif • {summaryNonaktifCount} Non
                   </span>
                 </div>
 
@@ -260,7 +381,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     Kapasitas Aktif
                   </span>
                   <div className="mt-1 flex items-baseline gap-1">
-                    <span className="text-2xl font-black font-mono text-slate-900">{totalKapasitasAktif}</span>
+                    <span className="text-2xl font-black font-mono text-slate-900">{summaryKapasitasAktif}</span>
                     <span className="text-[11px] text-slate-500 font-bold">Unit</span>
                   </div>
                   <span className="text-[10px] text-slate-400 block mt-0.5">
@@ -273,8 +394,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     Unit Siap (Ready)
                   </span>
                   <div className="mt-1 flex items-baseline gap-1">
-                    <span className="text-2xl font-black font-mono text-emerald-700">{readyCount}</span>
-                    <span className="text-[11px] text-emerald-700 font-bold">Unit</span>
+                    <span className="text-2xl font-black font-mono text-emerald-700">{summaryReadyCount}</span>
+                    <span className="text-[11px] text-emerald-700 font-bold">Truk</span>
                   </div>
                   <span className="text-[10px] text-emerald-600 block mt-0.5">
                     Siap Berangkat
@@ -286,8 +407,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     Unit Terkendala
                   </span>
                   <div className="mt-1 flex items-baseline gap-1">
-                    <span className="text-2xl font-black font-mono text-rose-700">{tidakReadyCount}</span>
-                    <span className="text-[11px] text-rose-700 font-bold">Unit</span>
+                    <span className="text-2xl font-black font-mono text-rose-700">{summaryTidakReadyCount}</span>
+                    <span className="text-[11px] text-rose-700 font-bold">Truk</span>
                   </div>
                   <span className="text-[10px] text-rose-600 block mt-0.5">
                     Perlu Penanganan
@@ -696,6 +817,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <span className="text-base">📥</span>
                   <span>Unduh CSV</span>
                 </button>
+
+                {onResetReadiness && (
+                  <button
+                    type="button"
+                    onClick={onResetReadiness}
+                    className="p-3 rounded-xl bg-rose-50 border border-rose-200 active:bg-rose-100 text-rose-800 font-bold text-xs flex flex-col justify-between gap-2 shadow-xs cursor-pointer"
+                    title="Bersihkan semua riwayat update kesiapan armada hari ini"
+                  >
+                    <span className="text-base">🔄</span>
+                    <span>Reset Kesiapan</span>
+                  </button>
+                )}
               </div>
 
             </div>
@@ -859,6 +992,93 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         ) : (
           <div className="space-y-3">
             
+            {/* Header Filter Ringkasan Desktop */}
+            <div className="flex items-center justify-between bg-white rounded-xl border border-slate-200 px-3.5 py-2 shadow-xs">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                  Ringkasan Kesiapan Armada
+                </span>
+                {(summaryDepoFilter !== 'ALL' || summaryVendorFilter !== 'ALL') ? (
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-red-600 bg-red-50 border border-red-200 px-2.5 py-0.5 rounded-full font-mono">
+                    <span>{summaryDepoFilter !== 'ALL' ? `Depo: ${summaryDepoFilter}` : 'Semua Depo'}</span>
+                    <span>•</span>
+                    <span>{summaryVendorFilter !== 'ALL' ? `Transporter: ${summaryVendorFilter}` : 'Semua Transporter'}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSummaryDepoFilter('ALL');
+                        setSummaryVendorFilter('ALL');
+                      }}
+                      className="ml-1 text-red-600 hover:text-red-800 font-black cursor-pointer"
+                      title="Reset filter"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                ) : (
+                  <span className="text-[11px] text-slate-400 font-medium">
+                    (Semua Depo & Transporter)
+                  </span>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsSummaryFilterOpen(!isSummaryFilterOpen)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-xs ${
+                  isSummaryFilterOpen || summaryDepoFilter !== 'ALL' || summaryVendorFilter !== 'ALL'
+                    ? 'bg-red-600 text-white'
+                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+                }`}
+                title="Filter Depo & Transporter"
+              >
+                <svg className="w-3.5 h-3.5 fill-none stroke-current" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                <span>Filter</span>
+              </button>
+            </div>
+
+            {/* Dropdown Filter Panel Desktop (Clean & Ringkas) */}
+            {isSummaryFilterOpen && (
+              <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-xs space-y-2 animate-in fade-in duration-150">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">
+                      Gudang / Depo:
+                    </label>
+                    <select
+                      value={summaryDepoFilter}
+                      onChange={(e) => setSummaryDepoFilter(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-800 focus:outline-hidden focus:border-red-500 cursor-pointer"
+                    >
+                      <option value="ALL">Semua Depo (All)</option>
+                      <option value="Karawang">Depo Karawang</option>
+                      <option value="Baros">Depo Baros</option>
+                      <option value="Cirebon">Depo Cirebon</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">
+                      Transporter:
+                    </label>
+                    <select
+                      value={summaryVendorFilter}
+                      onChange={(e) => setSummaryVendorFilter(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-800 focus:outline-hidden focus:border-red-500 cursor-pointer"
+                    >
+                      <option value="ALL">Semua Transporter (All)</option>
+                      <option value="TM">TM - Tunas Muda</option>
+                      <option value="RJTM">RJTM - Roda Jagat</option>
+                      <option value="WSS">WSS - Wahana</option>
+                      <option value="SBR">SBR - Sari Bumi</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* 1. Baris 5 Metrik Konsolidasi Utama */}
             <div className="grid grid-cols-5 gap-2.5">
               <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-xs">
@@ -867,12 +1087,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </span>
                 <div className="mt-1 flex items-baseline gap-1.5">
                   <span className="text-2xl font-black text-slate-900 font-mono">
-                    {totalTrucks}
+                    {summaryTotalTrucks}
                   </span>
-                  <span className="text-xs text-slate-500 font-bold">Unit</span>
+                  <span className="text-xs text-slate-500 font-bold">Truk</span>
                 </div>
                 <span className="block text-[11px] text-slate-400 mt-0.5">
-                  {activeCount} Aktif • {nonaktifCount} Non
+                  {summaryActiveCount} Aktif • {summaryNonaktifCount} Non
                 </span>
               </div>
 
@@ -882,10 +1102,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </span>
                 <div className="mt-1 flex items-baseline gap-1.5">
                   <span className="text-2xl font-black text-emerald-700 font-mono">
-                    {readyCount}
+                    {summaryReadyCount}
                   </span>
                   <span className="text-xs text-emerald-700 font-bold font-mono">
-                    ({overallPercent}%)
+                    ({summaryOverallPercent}%)
                   </span>
                 </div>
                 <span className="block text-[11px] text-emerald-600 mt-0.5">
@@ -899,9 +1119,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </span>
                 <div className="mt-1 flex items-baseline gap-1.5">
                   <span className="text-2xl font-black text-rose-700 font-mono">
-                    {tidakReadyCount}
+                    {summaryTidakReadyCount}
                   </span>
-                  <span className="text-xs text-rose-700 font-bold">Unit</span>
+                  <span className="text-xs text-rose-700 font-bold">Truk</span>
                 </div>
                 <span className="block text-[11px] text-rose-600 mt-0.5">
                   Perlu Penanganan
@@ -914,7 +1134,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </span>
                 <div className="mt-1 flex items-baseline gap-1.5">
                   <span className="text-2xl font-black text-slate-900 font-mono">
-                    {totalKapasitasAktif}
+                    {summaryKapasitasAktif}
                   </span>
                   <span className="text-xs text-slate-500 font-bold">Unit</span>
                 </div>

@@ -34,6 +34,7 @@ import {
   saveSnapshotToDatabase,
   fetchSnapshotFromDatabase,
   downloadDateSnapshotCsv,
+  STORAGE_KEYS,
 } from './services/apiService';
 import { INITIAL_USERS, INITIAL_TRUCKS, TRANSPORTER_NAMES } from './services/mockData';
 import {
@@ -865,13 +866,43 @@ export default function App() {
     return { success: false, message: result.message || 'Koneksi gagal' };
   };
 
-  const handleResetData = () => {
-    setUsers(INITIAL_USERS);
-    setTrucks(INITIAL_TRUCKS);
-    saveLocalUsers(INITIAL_USERS);
-    saveLocalTrucks(INITIAL_TRUCKS);
-    setActiveUser(INITIAL_USERS[0]);
-    showToast('Data simulasi telah direset ke kondisi awal.', 'info');
+  const handleResetData = async () => {
+    // Reset confirmation times and clean truck readiness
+    const emptyTimes: Record<string, string> = { TM: '', RJTM: '', WSS: '', SBR: '' };
+    setLastConfirmedTimes(emptyTimes);
+    saveStoredConfirmedTimes(emptyTimes);
+
+    // Wipe local stored daily history
+    try {
+      localStorage.removeItem(STORAGE_KEYS.DAILY_HISTORY);
+    } catch {}
+
+    // Call server to wipe all historical snapshots & reset readiness cleanly
+    try {
+      await fetch('/api/admin/wipe-all-snapshots', { method: 'POST' });
+      const res = await fetch('/api/admin/reset-readiness-clean', { method: 'POST' });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.trucks) && data.trucks.length > 0) {
+        setTrucks(data.trucks);
+        saveLocalTrucks(data.trucks);
+        showToast('✓ Seluruh data tanggal sebelumnya & riwayat kesiapan berhasil dihapus total dari database.', 'success');
+        return;
+      }
+    } catch {}
+
+    // Fallback: clean current trucks
+    const cleaned = trucks
+      .filter((t) => !t.id?.startsWith('TRK-') && Boolean(t.nomorPolisi))
+      .map((t) => ({
+        ...t,
+        kesiapan: (t.status === 'Nonaktif' ? 'Tidak Ready' : 'Ready') as ReadinessStatus,
+        keterangan: '',
+        terakhirUpdate: 'Belum update hari ini',
+        tanggalUpdate: getWIBDateString(),
+      }));
+    setTrucks(cleaned);
+    saveLocalTrucks(cleaned);
+    showToast('✓ Status update kesiapan hari ini telah dibersihkan.', 'success');
   };
 
   if (unauthorizedCode) {
@@ -972,6 +1003,7 @@ export default function App() {
               onOpenMasterWhatsApp={handleOpenMasterWhatsApp}
               onOpenFleetModal={handleOpenFleetModal}
               onOpenChangePassword={() => setIsChangePasswordModalOpen(true)}
+              onResetReadiness={handleResetData}
               isSyncing={isSyncingLive}
               hasCustomGasUrl={Boolean(gasUrl)}
               lastConfirmedTimes={lastConfirmedTimes}

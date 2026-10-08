@@ -75,7 +75,30 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
 
   const handleSaveFloatingNote = () => {
     if (!floatingNoteTruck) return;
-    handleFieldChange(floatingNoteTruck.id, 'keterangan', floatingNoteText.trim());
+    const noteText = floatingNoteText.trim();
+    const newReadiness: ReadinessStatus = 'Tidak Ready';
+
+    setRowStates((prev) => ({
+      ...prev,
+      [floatingNoteTruck.id]: {
+        ...(prev[floatingNoteTruck.id] || {
+          nomorPolisi: floatingNoteTruck.nomorPolisi,
+          namaSopir: floatingNoteTruck.namaSopir,
+          kapasitas: floatingNoteTruck.kapasitas,
+          status: floatingNoteTruck.status,
+          depo: floatingNoteTruck.depo || 'Karawang',
+          saveStatus: 'idle',
+        }),
+        kesiapan: newReadiness,
+        keterangan: noteText,
+      },
+    }));
+
+    triggerSave(floatingNoteTruck.id, {
+      kesiapan: newReadiness,
+      keterangan: noteText,
+    });
+
     setIsNoteModalInEditMode(false);
     setFloatingNoteTruck(null);
   };
@@ -87,6 +110,98 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
     setIsNoteModalInEditMode(true);
     setFloatingNoteTruck(null);
   };
+
+  // Floating Confirmation for Status Aktif/Nonaktif
+  const [statusConfirmTruck, setStatusConfirmTruck] = useState<TruckRecord | null>(null);
+
+  const handleConfirmToggleStatus = () => {
+    if (!statusConfirmTruck) return;
+    handleToggleStatus(statusConfirmTruck.id);
+    setStatusConfirmTruck(null);
+  };
+
+  // Floating Row Editor Modal (Role Transporter)
+  const [editingTruck, setEditingTruck] = useState<TruckRecord | null>(null);
+  const [editingRowIndex, setEditingRowIndex] = useState<number>(1);
+  const [editDraft, setEditDraft] = useState<{
+    nomorPolisi: string;
+    namaSopir: string;
+    kapasitas: string;
+  }>({ nomorPolisi: '', namaSopir: '', kapasitas: '28' });
+
+  const handleOpenRowEdit = (truck: TruckRecord, rowIndex: number = 1) => {
+    if (isLocked) return;
+    const currentRow = rowStates[truck.id] || {
+      nomorPolisi: truck.nomorPolisi,
+      namaSopir: truck.namaSopir,
+      kapasitas: truck.kapasitas,
+    };
+    setEditingTruck(truck);
+    setEditingRowIndex(rowIndex);
+    setEditDraft({
+      nomorPolisi: (currentRow.nomorPolisi || '').toUpperCase(),
+      namaSopir: (currentRow.namaSopir || '').toUpperCase(),
+      kapasitas: String(currentRow.kapasitas || '28').replace(/\D/g, '') || '28',
+    });
+  };
+
+  const handleSaveRowEdit = () => {
+    if (!editingTruck) return;
+    const cleanNopol = editDraft.nomorPolisi.trim().toUpperCase();
+    const cleanSopir = editDraft.namaSopir.trim().toUpperCase();
+    const cleanKap = editDraft.kapasitas.replace(/\D/g, '') || '28';
+
+    setRowStates((prev) => ({
+      ...prev,
+      [editingTruck.id]: {
+        ...(prev[editingTruck.id] || {
+          status: editingTruck.status,
+          kesiapan: editingTruck.kesiapan || 'Ready',
+          keterangan: editingTruck.keterangan || '',
+          depo: editingTruck.depo || 'Karawang',
+          saveStatus: 'idle',
+        }),
+        nomorPolisi: cleanNopol,
+        namaSopir: cleanSopir,
+        kapasitas: cleanKap,
+      },
+    }));
+
+    triggerSave(editingTruck.id, {
+      nomorPolisi: cleanNopol,
+      namaSopir: cleanSopir,
+      kapasitas: cleanKap,
+    });
+
+    setEditingTruck(null);
+  };
+
+  // Keyboard shortcut: Escape to close Floating Row Editor
+  useEffect(() => {
+    if (!editingTruck) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setEditingTruck(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [editingTruck]);
+
+  // Keyboard shortcut: Escape / Enter for status confirmation
+  useEffect(() => {
+    if (!statusConfirmTruck) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setStatusConfirmTruck(null);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        handleConfirmToggleStatus();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [statusConfirmTruck]);
 
   const debounceTimers = useRef<Record<string, NodeJS.Timeout>>({});
   const fadeTimers = useRef<Record<string, NodeJS.Timeout>>({});
@@ -303,9 +418,23 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
   const handleToggleReadiness = (truck: TruckRecord) => {
     if (isLocked) return;
     const currentReadiness = rowStates[truck.id]?.kesiapan || 'Ready';
-    const newReadiness: ReadinessStatus = currentReadiness === 'Ready' ? 'Tidak Ready' : 'Ready';
-    // JIKA TIDAK READY MENJADI READY KEMBALI MAKA ISI KETERANGAN DIRESET KEMBALI
-    const newKeterangan = newReadiness === 'Ready' ? '' : (rowStates[truck.id]?.keterangan || '');
+
+    // JIKA STATUS SEKARANG ADALAH READY:
+    // Jangan langsung ubah ke Tidak Ready!
+    // Buka formulir catatan alasan terlebih dahulu.
+    // Kesiapan baru berubah menjadi Tidak Ready ketika tombol simpan pada modal ditekan.
+    // Jika dibatalkan / ditutup tanpa simpan, kesiapan tetap Ready.
+    if (currentReadiness === 'Ready') {
+      setFloatingNoteTruck(truck);
+      setFloatingNoteText('');
+      setIsNoteModalInEditMode(true);
+      return;
+    }
+
+    // JIKA STATUS SEKARANG ADALAH TIDAK READY:
+    // Mengembalikan ke Ready langsung dan mereset keterangan
+    const newReadiness: ReadinessStatus = 'Ready';
+    const newKeterangan = '';
 
     setRowStates((prev) => ({
       ...prev,
@@ -317,13 +446,6 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
     }));
 
     triggerSave(truck.id, { kesiapan: newReadiness, keterangan: newKeterangan });
-
-    // When toggled to "Tidak Ready", open the floating note dialog in edit mode so transporter can enter the reason immediately
-    if (newReadiness === 'Tidak Ready' && !isAdmin) {
-      setFloatingNoteTruck(truck);
-      setFloatingNoteText(rowStates[truck.id]?.keterangan || '');
-      setIsNoteModalInEditMode(true);
-    }
   };
 
   // Selection handlers
@@ -495,32 +617,36 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
                     return (
                       <tr
                         key={truck.id}
-                        className="hover:bg-slate-50/60 transition-colors"
+                        onClick={() => !isLocked && handleOpenRowEdit(truck, index + 1)}
+                        className={`transition-colors ${
+                          !isLocked
+                            ? 'cursor-pointer hover:bg-blue-50/70'
+                            : 'hover:bg-slate-50/60'
+                        }`}
                       >
                         {/* No */}
-                        <td className="py-1 px-0.5 text-center font-mono text-[8.5px] sm:text-[9.5px] text-slate-400 font-bold">
+                        <td className="py-1 px-0.5 text-center font-mono text-[8.5px] sm:text-[9.5px] text-slate-400 font-bold select-none">
                           {index + 1}
                         </td>
 
                         {/* Nomor Polisi & Riwayat Tanggal/Jam Update */}
-                        <td className="py-0.5 px-0.5">
-                          <input
-                            type="text"
-                            disabled={isLocked}
-                            value={row.nomorPolisi}
-                            onChange={(e) =>
-                              handleFieldChange(truck.id, 'nomorPolisi', e.target.value.toUpperCase())
-                            }
-                            placeholder="B 1234 XX"
-                            className="w-full font-mono font-extrabold text-[9px] sm:text-[11px] px-0.5 py-0.5 rounded border border-transparent hover:border-slate-300 focus:border-red-500 bg-transparent focus:bg-white text-slate-900 focus:outline-hidden transition"
-                          />
-                          <div className="flex items-center gap-1 px-0.5 mt-0.2">
+                        <td className="py-1 px-0.5">
+                          <span className="font-mono font-extrabold text-[9px] sm:text-[11px] text-slate-900 block truncate leading-tight">
+                            {row.nomorPolisi || '-'}
+                          </span>
+                          <div className="flex items-center gap-1 px-0.5 mt-0.5">
                             {isConfirmedToday(truck.terakhirUpdate) ? (
-                              <span className="text-[7.5px] font-mono font-bold text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200" title={`Riwayat update: ${truck.terakhirUpdate}`}>
+                              <span
+                                className="text-[7.5px] font-mono font-bold text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200"
+                                title={`Riwayat update: ${truck.terakhirUpdate}`}
+                              >
                                 ✓ {truck.terakhirUpdate.split(',')[1]?.trim() || truck.terakhirUpdate}
                               </span>
                             ) : (
-                              <span className="text-[7.5px] font-mono text-slate-400 bg-slate-100 px-1 py-0.2 rounded" title="Belum diperbarui pada tanggal ini">
+                              <span
+                                className="text-[7.5px] font-mono text-slate-400 bg-slate-100 px-1 py-0.2 rounded"
+                                title="Belum diperbarui pada tanggal ini"
+                              >
                                 Belum update
                               </span>
                             )}
@@ -528,42 +654,30 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
                         </td>
 
                         {/* Nama Sopir */}
-                        <td className="py-0.5 px-0.5">
-                          <input
-                            type="text"
-                            disabled={isLocked}
-                            value={row.namaSopir}
-                            onChange={(e) =>
-                              handleFieldChange(truck.id, 'namaSopir', e.target.value)
-                            }
-                            placeholder="Sopir"
-                            className="w-full font-semibold text-[8.5px] sm:text-[10px] px-0.5 py-0.5 rounded border border-transparent hover:border-slate-300 focus:border-red-500 bg-transparent focus:bg-white text-slate-800 focus:outline-hidden truncate transition"
-                          />
+                        <td className="py-1 px-0.5">
+                          <span
+                            className="font-semibold text-[8.5px] sm:text-[10px] text-slate-800 block truncate leading-tight uppercase"
+                            title={row.namaSopir || 'Belum diisi'}
+                          >
+                            {row.namaSopir || <span className="text-slate-400 italic font-normal">-</span>}
+                          </span>
                         </td>
 
                         {/* Kapasitas */}
-                        <td className="py-0.5 px-0 text-center">
-                          <input
-                            type="text"
-                            disabled={isLocked}
-                            value={row.kapasitas}
-                            onChange={(e) =>
-                              handleFieldChange(
-                                truck.id,
-                                'kapasitas',
-                                e.target.value.replace(/\D/g, '')
-                              )
-                            }
-                            placeholder="28"
-                            className="w-full text-center font-mono font-bold text-[8.5px] sm:text-[10px] px-0 py-0.5 rounded border border-transparent hover:border-slate-300 focus:border-red-500 bg-transparent focus:bg-white text-slate-700 focus:outline-hidden transition"
-                          />
+                        <td className="py-1 px-0 text-center">
+                          <span className="font-mono font-bold text-[8.5px] sm:text-[10px] text-slate-700 block leading-tight">
+                            {row.kapasitas || '28'}
+                          </span>
                         </td>
 
                         {/* Status Armada: ICON AKSI */}
                         <td className="py-1 px-0.5 text-center">
                           <button
                             type="button"
-                            onClick={() => handleToggleStatus(truck.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setStatusConfirmTruck(truck);
+                            }}
                             disabled={isLocked}
                             title="Armada Aktif (Klik untuk Nonaktifkan)"
                             className="p-0.5 rounded hover:bg-slate-200 transition cursor-pointer inline-flex items-center justify-center"
@@ -580,7 +694,10 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
                             /* JIKA READY: HANYA TOMBOL READY (ICON COMMENT TIDAK MUNCUL) */
                             <button
                               type="button"
-                              onClick={() => handleToggleReadiness(truck)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleToggleReadiness(truck);
+                              }}
                               disabled={isLocked}
                               title="Status Ready Kirim (Klik untuk ubah ke Tidak Ready)"
                               className="bg-blue-600 hover:bg-blue-700 text-white border-blue-700 text-[8px] sm:text-[9.5px] font-extrabold px-2 py-0.5 rounded transition cursor-pointer border leading-none shadow-2xs"
@@ -592,7 +709,10 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
                             <div className="inline-flex items-center justify-center gap-0.5">
                               <button
                                 type="button"
-                                onClick={() => handleToggleReadiness(truck)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleToggleReadiness(truck);
+                                }}
                                 disabled={isLocked}
                                 title="Status Tidak Ready (Klik untuk ubah ke Ready)"
                                 className="bg-red-600 hover:bg-red-700 text-white border-red-700 text-[7.5px] sm:text-[9px] font-extrabold px-1.5 py-0.5 rounded transition cursor-pointer border leading-none shadow-2xs"
@@ -603,7 +723,10 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
                               {/* Icon Comment / Catatan Alasan */}
                               <button
                                 type="button"
-                                onClick={() => handleOpenNoteModal(truck)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenNoteModal(truck);
+                                }}
                                 title={
                                   row.keterangan
                                     ? `Alasan: "${row.keterangan}" (Klik untuk lihat & buka kunci edit)`
@@ -670,54 +793,40 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
                         };
 
                         return (
-                          <tr key={truck.id} className="hover:bg-slate-200/50 transition-colors">
-                            <td className="py-1 px-0.5 text-center font-mono text-[8.5px] sm:text-[9.5px] text-slate-400 font-bold">
+                          <tr
+                            key={truck.id}
+                            onClick={() => !isLocked && handleOpenRowEdit(truck, index + 1)}
+                            className={`transition-colors ${
+                              !isLocked
+                                ? 'cursor-pointer hover:bg-blue-100/70'
+                                : 'hover:bg-slate-200/50'
+                            }`}
+                          >
+                            <td className="py-1 px-0.5 text-center font-mono text-[8.5px] sm:text-[9.5px] text-slate-400 font-bold select-none">
                               {index + 1}
                             </td>
-                            <td className="py-0.5 px-0.5">
-                              <input
-                                type="text"
-                                disabled={isLocked}
-                                value={row.nomorPolisi}
-                                onChange={(e) =>
-                                  handleFieldChange(truck.id, 'nomorPolisi', e.target.value.toUpperCase())
-                                }
-                                placeholder="B 1234 XX"
-                                className="w-full font-mono font-bold text-[9px] sm:text-[11px] px-0.5 py-0.5 rounded border border-transparent hover:border-slate-300 focus:border-red-500 bg-transparent focus:bg-white text-slate-600 focus:outline-hidden transition"
-                              />
+                            <td className="py-1 px-0.5">
+                              <span className="font-mono font-bold text-[9px] sm:text-[11px] text-slate-600 block truncate leading-tight">
+                                {row.nomorPolisi || '-'}
+                              </span>
                             </td>
-                            <td className="py-0.5 px-0.5">
-                              <input
-                                type="text"
-                                disabled={isLocked}
-                                value={row.namaSopir}
-                                onChange={(e) =>
-                                  handleFieldChange(truck.id, 'namaSopir', e.target.value)
-                                }
-                                placeholder="Sopir"
-                                className="w-full font-medium text-[8.5px] sm:text-[10px] px-0.5 py-0.5 rounded border border-transparent hover:border-slate-300 focus:border-red-500 bg-transparent focus:bg-white text-slate-600 focus:outline-hidden truncate transition"
-                              />
+                            <td className="py-1 px-0.5">
+                              <span className="font-medium text-[8.5px] sm:text-[10px] text-slate-600 block truncate leading-tight uppercase">
+                                {row.namaSopir || '-'}
+                              </span>
                             </td>
-                            <td className="py-0.5 px-0 text-center">
-                              <input
-                                type="text"
-                                disabled={isLocked}
-                                value={row.kapasitas}
-                                onChange={(e) =>
-                                  handleFieldChange(
-                                    truck.id,
-                                    'kapasitas',
-                                    e.target.value.replace(/\D/g, '')
-                                  )
-                                }
-                                placeholder="28"
-                                className="w-full text-center font-mono font-medium text-[8.5px] sm:text-[10px] px-0 py-0.5 rounded border border-transparent hover:border-slate-300 focus:border-red-500 bg-transparent focus:bg-white text-slate-600 focus:outline-hidden transition"
-                              />
+                            <td className="py-1 px-0 text-center">
+                              <span className="font-mono font-medium text-[8.5px] sm:text-[10px] text-slate-600 block leading-tight">
+                                {row.kapasitas || '28'}
+                              </span>
                             </td>
                             <td className="py-1 px-0.5 text-center">
                               <button
                                 type="button"
-                                onClick={() => handleToggleStatus(truck.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setStatusConfirmTruck(truck);
+                                }}
                                 disabled={isLocked}
                                 title="Armada Nonaktif (Klik untuk Aktifkan kembali)"
                                 className="p-0.5 rounded hover:bg-slate-300 transition cursor-pointer inline-flex items-center justify-center"
@@ -1126,6 +1235,138 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
               </div>
             )}
 
+          </div>
+        </div>
+      )}
+
+      {/* Floating Status Confirmation Modal */}
+      {statusConfirmTruck && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-150"
+          onClick={() => setStatusConfirmTruck(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl border border-slate-200/90 p-4 w-full max-w-sm animate-in zoom-in-95 duration-150 space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-xs sm:text-sm font-bold text-slate-800">
+              {(rowStates[statusConfirmTruck.id]?.status || statusConfirmTruck.status) === 'Aktif'
+                ? `Nonaktifkan armada ${rowStates[statusConfirmTruck.id]?.nomorPolisi || statusConfirmTruck.nomorPolisi}?`
+                : `Aktifkan kembali armada ${rowStates[statusConfirmTruck.id]?.nomorPolisi || statusConfirmTruck.nomorPolisi}?`}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setStatusConfirmTruck(null)}
+                title="Batal (Esc)"
+                className="w-10 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-600 flex items-center justify-center font-bold text-sm transition cursor-pointer"
+              >
+                ✕
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmToggleStatus}
+                title="Konfirmasi (Enter)"
+                className="w-12 h-9 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white flex items-center justify-center font-black text-base shadow-xs transition cursor-pointer"
+              >
+                ✓
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Ultra-Clean Floating Row Editor (Role Transporter) */}
+      {editingTruck && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-150"
+          onClick={() => setEditingTruck(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl border border-slate-200/90 p-2 sm:p-2.5 w-full max-w-3xl animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSaveRowEdit();
+              }}
+              className="flex flex-col gap-1 w-full"
+            >
+              {/* Baris 1: Data Armada [ 1 ] [ No. Polisi ] [ Nama Sopir ] [ Kapasitas ] */}
+              <div className="flex items-center gap-1.5 sm:gap-2 w-full">
+                {/* Kotak 1: Nomor Urut [ 1 ] */}
+                <div className="shrink-0 w-8 sm:w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center font-mono font-bold text-xs sm:text-sm text-slate-700 select-none">
+                  {editingRowIndex}
+                </div>
+
+                {/* Kotak 2: No. Polisi [ B 9322 UIP ] */}
+                <input
+                  type="text"
+                  autoFocus
+                  value={editDraft.nomorPolisi}
+                  onChange={(e) =>
+                    setEditDraft((prev) => ({
+                      ...prev,
+                      nomorPolisi: e.target.value.toUpperCase(),
+                    }))
+                  }
+                  placeholder="No. Polisi"
+                  className="w-28 sm:w-36 h-10 px-2.5 sm:px-3 rounded-xl border border-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 font-mono font-black text-xs sm:text-sm text-slate-900 uppercase transition outline-hidden"
+                />
+
+                {/* Kotak 3: Nama Sopir [ ADUNG TM KRW ] */}
+                <input
+                  type="text"
+                  value={editDraft.namaSopir}
+                  onChange={(e) =>
+                    setEditDraft((prev) => ({
+                      ...prev,
+                      namaSopir: e.target.value.toUpperCase(),
+                    }))
+                  }
+                  placeholder="Nama Sopir"
+                  className="flex-1 min-w-[110px] h-10 px-2.5 sm:px-3 rounded-xl border border-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 font-bold text-xs sm:text-sm text-slate-800 uppercase transition outline-hidden"
+                />
+
+                {/* Kotak 4: Kapasitas [ 28 ] */}
+                <input
+                  type="text"
+                  value={editDraft.kapasitas}
+                  onChange={(e) =>
+                    setEditDraft((prev) => ({
+                      ...prev,
+                      kapasitas: e.target.value.replace(/\D/g, ''),
+                    }))
+                  }
+                  placeholder="KAP"
+                  className="w-12 sm:w-16 h-10 px-1 rounded-xl border border-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 font-mono font-black text-xs sm:text-sm text-center text-slate-900 transition outline-hidden"
+                />
+              </div>
+
+              {/* Baris 2: Tombol Aksi di Bawahnya [ ✕ ] [ ✓ ] */}
+              <div className="flex items-center justify-end gap-2 w-full pt-1.5 sm:pt-2">
+                {/* [ ✕ ] : Tombol ikon silang untuk membatalkan perubahan atau menutup modal */}
+                <button
+                  type="button"
+                  onClick={() => setEditingTruck(null)}
+                  title="Batal (Esc)"
+                  className="w-9 sm:w-10 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-600 flex items-center justify-center font-bold text-sm transition cursor-pointer"
+                >
+                  ✕
+                </button>
+
+                {/* [ ✓ ] : Tombol ikon centang biru untuk menyimpan perubahan */}
+                <button
+                  type="submit"
+                  title="Simpan (Enter)"
+                  className="w-12 sm:w-14 h-9 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white flex items-center justify-center font-black text-base shadow-xs transition cursor-pointer"
+                >
+                  ✓
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

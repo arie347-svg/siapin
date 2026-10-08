@@ -159,8 +159,11 @@ export const AdminAnalyticsReport: React.FC<AdminAnalyticsReportProps> = ({ truc
 
     // Inisialisasi daftar armada dari props.trucks
     trucks.forEach((t) => {
-      const plat = t.nomorPolisi.trim();
+      const plat = t.nomorPolisi?.trim();
       if (!plat) return;
+      // Filter out dummy/mock trucks
+      if (t.id && t.id.startsWith('TRK-')) return;
+
       trucksMap.set(plat, {
         nomorPolisi: plat,
         transporter: t.transporter,
@@ -180,7 +183,11 @@ export const AdminAnalyticsReport: React.FC<AdminAnalyticsReportProps> = ({ truc
       if (Array.isArray(snap.trucks)) {
         snap.trucks.forEach((t) => {
           const plat = (t.nomorPolisi || '').trim();
-          if (plat && !trucksMap.has(plat)) {
+          if (!plat) return;
+          // Filter out dummy/mock trucks
+          if (t.id && t.id.startsWith('TRK-')) return;
+
+          if (!trucksMap.has(plat)) {
             trucksMap.set(plat, {
               nomorPolisi: plat,
               transporter: t.transporter,
@@ -223,10 +230,16 @@ export const AdminAnalyticsReport: React.FC<AdminAnalyticsReportProps> = ({ truc
           foundTruck = snap.trucks.find(
             (item) => item.nomorPolisi?.trim().toLowerCase() === plat.toLowerCase()
           );
+          if (foundTruck && foundTruck.terakhirUpdate === 'Belum update hari ini') {
+            foundTruck = undefined;
+          }
         } else if (dateStr === todayStr && trucks && trucks.length > 0) {
           foundTruck = trucks.find(
             (item) => item.nomorPolisi?.trim().toLowerCase() === plat.toLowerCase()
           );
+          if (foundTruck && foundTruck.terakhirUpdate === 'Belum update hari ini') {
+            foundTruck = undefined;
+          }
         }
 
         if (foundTruck) {
@@ -277,163 +290,6 @@ export const AdminAnalyticsReport: React.FC<AdminAnalyticsReportProps> = ({ truc
       return true;
     });
   }, [matrixData, selectedTransporter, selectedDepo]);
-
-  // Generate File Excel Detail List Nomor Polisi & Kesiapan dari Database Harian
-  const handleExportDetailListExcel = () => {
-    const now = getWIBDate();
-    const dd = String(now.getDate()).padStart(2, '0');
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const yyyy = now.getFullYear();
-    const fileName = `readinesstruk_detail_${dd}-${mm}-${yyyy}.xls`;
-
-    interface DetailRow {
-      tanggal: string;
-      nomorPolisi: string;
-      transporter: string;
-      depo: string;
-      namaSopir: string;
-      kapasitas: string;
-      status: string;
-      kesiapan: string;
-      keterangan: string;
-      terakhirUpdate: string;
-    }
-
-    const detailRows: DetailRow[] = [];
-
-    // Ambil data per tanggal dalam rentang dari database/snapshot
-    dateRangeList.forEach((dateStr) => {
-      const snap = snapshotsMap[dateStr];
-      let sourceList: TruckRecord[] = [];
-
-      if (snap && Array.isArray(snap.trucks) && snap.trucks.length > 0) {
-        sourceList = snap.trucks;
-      } else if (dateStr === todayStr && trucks && trucks.length > 0) {
-        sourceList = trucks;
-      }
-
-      sourceList.forEach((t) => {
-        if (selectedTransporter !== 'ALL' && t.transporter !== selectedTransporter) return;
-        if (selectedDepo !== 'ALL' && (t.depo || 'Karawang').toLowerCase() !== selectedDepo.toLowerCase()) return;
-
-        detailRows.push({
-          tanggal: dateStr,
-          nomorPolisi: t.nomorPolisi || '',
-          transporter: TRANSPORTER_NAMES[t.transporter] || t.transporter || '',
-          depo: t.depo || 'Karawang',
-          namaSopir: t.namaSopir || '-',
-          kapasitas: t.kapasitas || '28',
-          status: t.status || 'Aktif',
-          kesiapan: t.kesiapan || 'Ready',
-          keterangan: t.keterangan || '',
-          terakhirUpdate: t.terakhirUpdate || '',
-        });
-      });
-    });
-
-    // Fallback jika belum ada snapshot historis sama sekali
-    if (detailRows.length === 0 && filteredMatrix.length > 0) {
-      filteredMatrix.forEach((t) => {
-        detailRows.push({
-          tanggal: todayStr,
-          nomorPolisi: t.nomorPolisi,
-          transporter: TRANSPORTER_NAMES[t.transporter] || t.transporter,
-          depo: t.depo,
-          namaSopir: t.namaSopir || '-',
-          kapasitas: t.kapasitas || '28',
-          status: t.status || 'Aktif',
-          kesiapan: t.readyCount > 0 ? 'Ready' : 'Tidak Ready',
-          keterangan: '',
-          terakhirUpdate: '',
-        });
-      });
-    }
-
-    const rowsHtml = detailRows
-      .map((r, idx) => {
-        const isReady = r.kesiapan === 'Ready';
-        const readyBg = isReady ? '#DCFCE7' : '#FEE2E2';
-        const readyColor = isReady ? '#166534' : '#991B1B';
-
-        return `
-          <tr>
-            <td style="text-align: center; border: 1px solid #CBD5E1;">${idx + 1}</td>
-            <td style="text-align: center; border: 1px solid #CBD5E1; font-family: monospace;">${r.tanggal}</td>
-            <td style="text-align: center; border: 1px solid #CBD5E1; font-family: monospace; font-weight: bold;">${r.nomorPolisi}</td>
-            <td style="border: 1px solid #CBD5E1;">${r.transporter}</td>
-            <td style="text-align: center; border: 1px solid #CBD5E1;">${r.depo}</td>
-            <td style="border: 1px solid #CBD5E1;">${r.namaSopir}</td>
-            <td style="text-align: center; border: 1px solid #CBD5E1;">${r.kapasitas}</td>
-            <td style="text-align: center; border: 1px solid #CBD5E1;">${r.status}</td>
-            <td style="text-align: center; font-weight: bold; background-color: ${readyBg}; color: ${readyColor}; border: 1px solid #CBD5E1;">${r.kesiapan}</td>
-            <td style="border: 1px solid #CBD5E1;">${r.keterangan || '-'}</td>
-            <td style="text-align: center; font-size: 8.5pt; color: #64748B; border: 1px solid #CBD5E1;">${r.terakhirUpdate || '-'}</td>
-          </tr>
-        `;
-      })
-      .join('');
-
-    const html = `
-      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-      <head>
-        <meta http-equiv="content-type" content="application/vnd.ms-excel; charset=UTF-8"/>
-        <!--[if gte mso 9]>
-        <xml>
-          <x:ExcelWorkbook>
-            <x:ExcelWorksheets>
-              <x:ExcelWorksheet>
-                <x:Name>Detail List Armada</x:Name>
-                <x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
-              </x:ExcelWorksheet>
-            </x:ExcelWorksheets>
-          </x:ExcelWorkbook>
-        </xml>
-        <![endif]-->
-        <style>
-          body { font-family: Calibri, Arial, sans-serif; font-size: 10pt; }
-          .title { font-size: 14pt; font-weight: bold; color: #0F172A; text-align: left; }
-          .subtitle { font-size: 9.5pt; color: #475569; margin-bottom: 10px; }
-          th { padding: 8px 6px; text-align: center; background-color: #0F172A; color: #FFFFFF; font-weight: bold; border: 1px solid #334155; }
-          td { padding: 5px 8px; vertical-align: middle; }
-        </style>
-      </head>
-      <body>
-        <table>
-          <tr><td colspan="11" class="title">DETAIL LIST ARMADA LOGISTIK MD TO DEALER</td></tr>
-          <tr><td colspan="11" class="subtitle">Rentang Tanggal: ${formatWIBDateIndo(startDate)} s/d ${formatWIBDateIndo(endDate)} | Transporter: ${selectedTransporter} | Depo: ${selectedDepo} | Total Baris: ${detailRows.length}</td></tr>
-          <tr><td colspan="11"></td></tr>
-          <thead>
-            <tr>
-              <th style="width: 40px;">No</th>
-              <th style="width: 95px;">Tanggal</th>
-              <th style="width: 120px;">Nomor Polisi</th>
-              <th style="width: 170px;">Transporter</th>
-              <th style="width: 100px;">Depo</th>
-              <th style="width: 160px;">Nama Sopir</th>
-              <th style="width: 75px;">Kapasitas</th>
-              <th style="width: 90px;">Status</th>
-              <th style="width: 110px;">Kesiapan</th>
-              <th style="width: 220px;">Keterangan Kendala</th>
-              <th style="width: 130px;">Terakhir Update</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rowsHtml}
-          </tbody>
-        </table>
-      </body>
-      </html>
-    `;
-
-    const blob = new Blob(['\uFEFF' + html], { type: 'application/vnd.ms-excel;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    setDownloadReady({
-      url,
-      fileName,
-      fileBlob: blob,
-      count: detailRows.length,
-    });
-  };
 
   // Generate File Excel Matriks Berwarna Sesuai Spesifikasi Persis
   const handleExportColoredExcel = () => {
@@ -684,30 +540,19 @@ export const AdminAnalyticsReport: React.FC<AdminAnalyticsReportProps> = ({ truc
         {/* Baris Ringkasan & Tombol Export Utama */}
         <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t border-slate-100">
           <div className="flex items-center gap-3 text-xs font-mono">
-            <span className="text-slate-600">Total Unit: <strong>{filteredMatrix.length}</strong></span>
+            <span className="text-slate-600">Total Truk: <strong>{filteredMatrix.length}</strong></span>
             <span className="text-slate-400">•</span>
             <span className="text-slate-600">Durasi: <strong>{dateRangeList.length} Hari</strong></span>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={handleExportDetailListExcel}
-              disabled={isLoadingRange || filteredMatrix.length === 0}
-              className="py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 active:bg-black disabled:opacity-50 text-white font-extrabold text-xs flex items-center justify-center shadow-xs transition cursor-pointer"
-            >
-              <span>{isLoadingRange ? 'Memuat Data...' : 'Export Detail List (Nopol)'}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleExportColoredExcel}
-              disabled={isLoadingRange || filteredMatrix.length === 0}
-              className="py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 disabled:opacity-50 text-white font-extrabold text-xs flex items-center justify-center shadow-xs transition cursor-pointer"
-            >
-              <span>{isLoadingRange ? 'Memuat Data...' : 'Export Matriks Berwarna'}</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleExportColoredExcel}
+            disabled={isLoadingRange || filteredMatrix.length === 0}
+            className="py-2.5 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 disabled:opacity-50 text-white font-extrabold text-xs flex items-center justify-center shadow-xs transition cursor-pointer"
+          >
+            <span>{isLoadingRange ? 'Memuat Data...' : 'Export'}</span>
+          </button>
         </div>
 
         {/* Setelah Export Ditekan: Kartu File Muncul Ringkas Tanpa Uraian Panjang & Tanpa Ikon */}
