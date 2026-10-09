@@ -624,28 +624,21 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
                           {index + 1}
                         </td>
 
-                        {/* Nomor Polisi & Riwayat Tanggal/Jam Update */}
+                        {/* Nomor Polisi */}
                         <td className="py-1.5 px-1">
                           <span className="font-mono font-semibold text-xs text-slate-900 block truncate">
                             {row.nomorPolisi || '-'}
                           </span>
-                          <div className="mt-0.5">
-                            {isConfirmedToday(truck.terakhirUpdate) ? (
+                          {isConfirmedToday(truck.terakhirUpdate) && (
+                            <div className="mt-0.5">
                               <span
                                 className="text-[10px] font-mono text-emerald-700"
                                 title={`Riwayat update: ${truck.terakhirUpdate}`}
                               >
                                 {truck.terakhirUpdate.split(',')[1]?.trim() || truck.terakhirUpdate}
                               </span>
-                            ) : (
-                              <span
-                                className="text-[10px] font-mono text-slate-400"
-                                title="Belum diperbarui pada tanggal ini"
-                              >
-                                Belum update
-                              </span>
-                            )}
-                          </div>
+                            </div>
+                          )}
                         </td>
 
                         {/* Nama Sopir */}
