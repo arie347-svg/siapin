@@ -318,14 +318,11 @@ export const ShareReportModal: React.FC<ShareReportModalProps> = ({
         {/* Modal Header */}
         <div className="px-5 py-4 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white flex items-center justify-between border-b border-slate-700 shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-red-600/90 text-white flex items-center justify-center text-sm shadow-md">
-              📤
-            </div>
             <div>
-              <h3 className="font-extrabold text-sm sm:text-base leading-tight">
+              <h3 className="font-semibold text-sm sm:text-base leading-tight">
                 Bagikan Laporan Armada
               </h3>
-              <p className="text-[11px] text-slate-300 font-medium">
+              <p className="text-[11px] text-slate-300 font-normal">
                 Pilih filter dan format dokumen yang diinginkan
               </p>
             </div>
@@ -333,7 +330,7 @@ export const ShareReportModal: React.FC<ShareReportModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center text-sm transition cursor-pointer"
+            className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center text-sm transition cursor-pointer"
           >
             ✕
           </button>
@@ -345,8 +342,8 @@ export const ShareReportModal: React.FC<ShareReportModalProps> = ({
           {/* STEP 1: PILIH KONDISI FILTER */}
           <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="font-black text-slate-700 uppercase tracking-wider text-[10px] flex items-center gap-1.5">
-                <span>🔍</span> 1. Filter Kondisi Data
+              <span className="font-semibold text-slate-700 uppercase tracking-wider text-[10px]">
+                1. Filter Kondisi Data
               </span>
               <span className="text-[10px] text-slate-400 font-medium">
                 Masing-masing filter mendukung ALL
@@ -429,8 +426,8 @@ export const ShareReportModal: React.FC<ShareReportModalProps> = ({
 
           {/* STEP 2: PILIH BENTUK FILE */}
           <div className="space-y-2">
-            <span className="font-black text-slate-700 uppercase tracking-wider text-[10px] flex items-center gap-1.5">
-              <span>📄</span> 2. Pilih Bentuk File
+            <span className="font-semibold text-slate-700 uppercase tracking-wider text-[10px] block">
+              2. Pilih Bentuk File
             </span>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
@@ -438,22 +435,22 @@ export const ShareReportModal: React.FC<ShareReportModalProps> = ({
               <button
                 type="button"
                 onClick={() => setSelectedFormat('excel')}
-                className={`p-3 rounded-2xl border text-left transition flex flex-col justify-between cursor-pointer ${
+                className={`p-3 rounded-xl border text-left transition flex flex-col justify-between cursor-pointer ${
                   selectedFormat === 'excel'
-                    ? 'border-emerald-600 bg-emerald-50/70 shadow-sm ring-1 ring-emerald-600'
+                    ? 'border-emerald-600 bg-emerald-50/70 shadow-xs ring-1 ring-emerald-600'
                     : 'border-slate-200 bg-white hover:bg-slate-50'
                 }`}
               >
-                <div className="flex items-center justify-between w-full mb-1.5">
-                  <span className="text-lg">📊</span>
+                <div className="flex items-center justify-between w-full mb-1">
+                  <span className="text-xs font-mono font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">CSV</span>
                   {selectedFormat === 'excel' && (
-                    <span className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold">
+                    <span className="w-3.5 h-3.5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[9px] font-bold">
                       ✓
                     </span>
                   )}
                 </div>
                 <div>
-                  <div className="font-extrabold text-slate-900 text-xs">Excel / CSV</div>
+                  <div className="font-semibold text-slate-900 text-xs">Excel / CSV</div>
                   <div className="text-[10px] text-slate-500 mt-0.5">Tabel data mentah lengkap</div>
                 </div>
               </button>
@@ -462,22 +459,22 @@ export const ShareReportModal: React.FC<ShareReportModalProps> = ({
               <button
                 type="button"
                 onClick={() => setSelectedFormat('pdf')}
-                className={`p-3 rounded-2xl border text-left transition flex flex-col justify-between cursor-pointer ${
+                className={`p-3 rounded-xl border text-left transition flex flex-col justify-between cursor-pointer ${
                   selectedFormat === 'pdf'
-                    ? 'border-red-600 bg-red-50/70 shadow-sm ring-1 ring-red-600'
+                    ? 'border-red-600 bg-red-50/70 shadow-xs ring-1 ring-red-600'
                     : 'border-slate-200 bg-white hover:bg-slate-50'
                 }`}
               >
-                <div className="flex items-center justify-between w-full mb-1.5">
-                  <span className="text-lg">📑</span>
+                <div className="flex items-center justify-between w-full mb-1">
+                  <span className="text-xs font-mono font-bold text-red-700 bg-red-100 px-1.5 py-0.5 rounded">PDF</span>
                   {selectedFormat === 'pdf' && (
-                    <span className="w-4 h-4 rounded-full bg-red-600 text-white flex items-center justify-center text-[10px] font-bold">
+                    <span className="w-3.5 h-3.5 rounded-full bg-red-600 text-white flex items-center justify-center text-[9px] font-bold">
                       ✓
                     </span>
                   )}
                 </div>
                 <div>
-                  <div className="font-extrabold text-slate-900 text-xs">Dokumen PDF</div>
+                  <div className="font-semibold text-slate-900 text-xs">Dokumen PDF</div>
                   <div className="text-[10px] text-slate-500 mt-0.5">Format cetak resmi SIAPIN</div>
                 </div>
               </button>
@@ -486,22 +483,22 @@ export const ShareReportModal: React.FC<ShareReportModalProps> = ({
               <button
                 type="button"
                 onClick={() => setSelectedFormat('whatsapp')}
-                className={`p-3 rounded-2xl border text-left transition flex flex-col justify-between cursor-pointer ${
+                className={`p-3 rounded-xl border text-left transition flex flex-col justify-between cursor-pointer ${
                   selectedFormat === 'whatsapp'
-                    ? 'border-green-600 bg-green-50/70 shadow-sm ring-1 ring-green-600'
+                    ? 'border-green-600 bg-green-50/70 shadow-xs ring-1 ring-green-600'
                     : 'border-slate-200 bg-white hover:bg-slate-50'
                 }`}
               >
-                <div className="flex items-center justify-between w-full mb-1.5">
-                  <span className="text-lg">💬</span>
+                <div className="flex items-center justify-between w-full mb-1">
+                  <span className="text-xs font-mono font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded">WA</span>
                   {selectedFormat === 'whatsapp' && (
-                    <span className="w-4 h-4 rounded-full bg-green-600 text-white flex items-center justify-center text-[10px] font-bold">
+                    <span className="w-3.5 h-3.5 rounded-full bg-green-600 text-white flex items-center justify-center text-[9px] font-bold">
                       ✓
                     </span>
                   )}
                 </div>
                 <div>
-                  <div className="font-extrabold text-slate-900 text-xs">Teks WhatsApp</div>
+                  <div className="font-semibold text-slate-900 text-xs">Teks WhatsApp</div>
                   <div className="text-[10px] text-slate-500 mt-0.5">Ringkasan cepat koordinasi</div>
                 </div>
               </button>
@@ -509,8 +506,7 @@ export const ShareReportModal: React.FC<ShareReportModalProps> = ({
           </div>
 
           {/* Info Format terpilih */}
-          <div className="bg-slate-100/90 rounded-xl p-2.5 text-[11px] text-slate-600 flex items-start gap-2">
-            <span className="text-blue-600 mt-0.5 text-xs">ℹ️</span>
+          <div className="bg-slate-100/90 rounded-lg p-2.5 text-[11px] text-slate-600">
             <div>
               {selectedFormat === 'excel' && (
                 <span>File spreadsheet (.csv) akan langsung dibagikan melalui Web Share API atau diunduh ke perangkat Anda.</span>
@@ -547,10 +543,7 @@ export const ShareReportModal: React.FC<ShareReportModalProps> = ({
                 <span>Memproses...</span>
               </>
             ) : (
-              <>
-                <span>🚀</span>
-                <span>Eksekusi Bagikan ({filteredTrucks.length} Unit)</span>
-              </>
+              <span>Bagikan Laporan ({filteredTrucks.length} Unit)</span>
             )}
           </button>
         </div>

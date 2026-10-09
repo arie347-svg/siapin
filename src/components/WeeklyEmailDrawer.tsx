@@ -172,7 +172,7 @@ export const WeeklyEmailDrawer: React.FC<WeeklyEmailDrawerProps> = ({
               onClick={handleCopyText}
               className="px-3 py-1.5 rounded-md border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold transition cursor-pointer"
             >
-              {copiedType === 'text' ? '✓ Teks Tersalin' : 'Salin Teks'}
+              {copiedType === 'text' ? 'Tersalin' : 'Salin Teks'}
             </button>
             <button
               type="button"

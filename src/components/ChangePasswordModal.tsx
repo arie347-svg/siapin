@@ -66,7 +66,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
         localStorage.setItem('SIAPIN_ADMIN_CUSTOM_PASSWORD', newPassword.trim());
         localStorage.setItem('SIAPIN_ADMIN_CUSTOM_PASSWORD_UPDATED', new Date().toISOString());
         setIsSubmitting(false);
-        onSuccess('✓ Password administrator berhasil diperbarui!');
+        onSuccess('Password administrator berhasil diperbarui!');
         onClose();
       } catch (err) {
         setIsSubmitting(false);
@@ -80,19 +80,14 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
       <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden text-left">
         
         {/* Header */}
-        <div className="px-5 py-4 bg-gradient-to-r from-slate-900 to-slate-800 text-white flex items-center justify-between border-b border-slate-700">
-          <div className="flex items-center gap-2.5">
-            <span className="p-2 rounded-xl bg-white/10 text-white text-base">
-              🔒
-            </span>
-            <div>
-              <h3 className="text-sm sm:text-base font-extrabold text-white">
-                Ubah Password Administrator
-              </h3>
-              <p className="text-[11px] text-slate-300">
-                Pengaturan keamanan akun admin SIAPIN
-              </p>
-            </div>
+        <div className="px-5 py-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
+          <div>
+            <h3 className="text-sm sm:text-base font-bold text-white">
+              Ubah Password Administrator
+            </h3>
+            <p className="text-[11px] text-slate-300">
+              Pengaturan keamanan akun admin SIAPIN
+            </p>
           </div>
 
           <button
@@ -108,14 +103,13 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
         <form onSubmit={handleSubmit} className="p-5 space-y-3.5 text-xs">
           
           <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-[11px] leading-relaxed">
-            <span className="font-bold block mb-0.5">⚠️ Verifikasi Keamanan</span>
+            <span className="font-semibold block mb-0.5">Verifikasi Keamanan</span>
             Harap masukkan alamat email administrator Anda untuk memvalidasi perubahan kata sandi ini.
           </div>
 
           {error && (
-            <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-xs font-semibold flex items-center gap-2">
-              <span>⚠️</span>
-              <span>{error}</span>
+            <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-xs font-medium">
+              {error}
             </div>
           )}
 

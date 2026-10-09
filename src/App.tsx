@@ -84,7 +84,7 @@ export default function App() {
     const { trucks: refreshed, didReset } = checkAndApplyDailyReset(trucks);
     if (didReset) {
       setTrucks(refreshed);
-      showToast('🗓️ Hari baru: Status kesiapan armada telah direset untuk konfirmasi hari ini.', 'info');
+      showToast('Status kesiapan armada telah direset untuk konfirmasi hari ini.', 'info');
     }
   }, []);
 
@@ -216,7 +216,7 @@ export default function App() {
         saveLocalTrucks(res.trucks);
         setAppSheetApiDisabled(false);
         setAppSheetTableNotFound(false);
-        showToast(`✓ Berhasil memuat ${res.trucks.length} unit armada dari AppSheet (${res.tableName})!`, 'success');
+        showToast(`Berhasil memuat ${res.trucks.length} unit armada dari AppSheet (${res.tableName})!`, 'success');
       } else if (res.isTableNotFound) {
         setAppSheetTableNotFound(true);
       } else if (res.isApiDisabled) {
@@ -310,7 +310,7 @@ export default function App() {
       url.searchParams.set('t', user.kodeTransporter);
     }
     window.history.pushState({}, '', url.toString());
-    showToast(`✓ Berhasil masuk sebagai ${user.namaTransporter}`, 'success');
+    showToast(`Berhasil masuk sebagai ${user.namaTransporter}`, 'success');
   };
 
   const handleLogout = () => {
@@ -388,7 +388,7 @@ export default function App() {
     } else {
       downloadDateSnapshotCsv(targetDate);
     }
-    showToast(`✓ Mengunduh rekap armada (${targetDate})`, 'success');
+    showToast(`Mengunduh rekap armada (${targetDate})`, 'success');
   }, [selectedDate, trucks, showToast]);
 
   // Filter trucks based on access control, vendor tab, search, status, and readiness
@@ -577,7 +577,7 @@ export default function App() {
       sendAppSheetAction('confirmAll', { trucks: affected });
     }
 
-    showToast(`✓ Status ${truckIds.length} unit berhasil diubah menjadi ${newStatus}`, 'success');
+    showToast(`Status ${truckIds.length} unit berhasil diubah menjadi ${newStatus}`, 'success');
     return true;
   };
 
@@ -626,7 +626,7 @@ export default function App() {
       sendAppSheetAction('confirmAll', { trucks: affected });
     }
 
-    showToast(`✓ Kesiapan ${truckIds.length} unit berhasil diset menjadi ${newReadiness}`, 'success');
+    showToast(`Kesiapan ${truckIds.length} unit berhasil diset menjadi ${newReadiness}`, 'success');
     return true;
   };
 
@@ -658,7 +658,7 @@ export default function App() {
       sendAppSheetAction('addTruck', { truck: newTruck });
     }
 
-    showToast(`✓ Armada baru ${newTruck.nomorPolisi} berhasil didaftarkan`, 'success');
+    showToast(`Armada baru ${newTruck.nomorPolisi} berhasil didaftarkan`, 'success');
   };
 
   // Handle deleting truck (Admin only)
@@ -680,7 +680,7 @@ export default function App() {
 
     setIsDeleting(false);
     setTruckToDelete(null);
-    showToast('✓ Armada berhasil dihapus dari sistem', 'info');
+    showToast('Armada berhasil dihapus dari sistem', 'info');
   };
 
   // Handle mass deleting trucks (Admin only)
@@ -705,7 +705,7 @@ export default function App() {
 
     setIsDeleting(false);
     setMassTrucksToDelete(null);
-    showToast(`✓ ${truckIds.length} unit armada berhasil dihapus`, 'info');
+    showToast(`${truckIds.length} unit armada berhasil dihapus`, 'info');
   };
 
   // Quick Action Button: "SIMPAN DATA & KIRIM WA"
@@ -844,7 +844,7 @@ export default function App() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    showToast('✓ Laporan CSV berhasil diunduh!', 'success');
+    showToast('Laporan CSV berhasil diunduh!', 'success');
   };
 
   const handleOpenMasterWhatsApp = () => {
@@ -885,7 +885,7 @@ export default function App() {
       if (data.success && Array.isArray(data.trucks) && data.trucks.length > 0) {
         setTrucks(data.trucks);
         saveLocalTrucks(data.trucks);
-        showToast('✓ Seluruh data tanggal sebelumnya & riwayat kesiapan berhasil dihapus total dari database.', 'success');
+        showToast('Seluruh data tanggal sebelumnya & riwayat kesiapan berhasil dihapus total dari database.', 'success');
         return;
       }
     } catch {}
@@ -902,7 +902,7 @@ export default function App() {
       }));
     setTrucks(cleaned);
     saveLocalTrucks(cleaned);
-    showToast('✓ Status update kesiapan hari ini telah dibersihkan.', 'success');
+    showToast('Status update kesiapan hari ini telah dibersihkan.', 'success');
   };
 
   if (unauthorizedCode) {
@@ -998,7 +998,7 @@ export default function App() {
               onDownloadDateReport={handleDownloadDateReport}
               onForceSaveTodaySnapshot={async () => {
                 await saveSnapshotToDatabase(getWIBDateString(), trucks);
-                showToast('✓ Snapshot hari ini berhasil disimpan ke database!', 'success');
+                showToast('Snapshot hari ini berhasil disimpan ke database!', 'success');
               }}
               onOpenMasterWhatsApp={handleOpenMasterWhatsApp}
               onOpenFleetModal={handleOpenFleetModal}
@@ -1157,9 +1157,9 @@ export default function App() {
                   type="button"
                   onClick={() => setIsFleetModalOpen(false)}
                   title="Tutup Tabel (ESC)"
-                  className="px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white text-xs font-bold transition cursor-pointer flex items-center gap-1 border border-white/20"
+                  className="px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white text-xs font-semibold transition cursor-pointer flex items-center border border-white/20"
                 >
-                  <span>✕ Tutup</span>
+                  <span>Tutup</span>
                 </button>
               </div>
             </div>
@@ -1284,22 +1284,21 @@ export default function App() {
       {/* Smooth White Floating Modal: Loading -> Success -> Auto-Redirect to WhatsApp */}
       {floatingUpdateModal && floatingUpdateModal.show && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs select-none animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl p-6 sm:p-7 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border border-slate-100 max-w-xs sm:max-w-sm w-full flex flex-col items-center text-center space-y-4 transform animate-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-2xl p-6 sm:p-7 shadow-xl border border-slate-100 max-w-xs sm:max-w-sm w-full flex flex-col items-center text-center space-y-4 transform animate-in zoom-in-95 duration-200">
             {floatingUpdateModal.status === 'loading' ? (
               <div className="relative flex items-center justify-center py-2">
-                <div className="w-16 h-16 rounded-full border-4 border-slate-100 border-t-[#E50914] animate-spin" />
-                <div className="absolute text-xl">🚚</div>
+                <div className="w-12 h-12 rounded-full border-3 border-slate-200 border-t-red-600 animate-spin" />
               </div>
             ) : (
-              <div className="w-16 h-16 rounded-full bg-emerald-50 border-2 border-emerald-500 flex items-center justify-center text-emerald-600 shadow-lg shadow-emerald-500/20 py-2 animate-in zoom-in-75 duration-200">
-                <svg className="w-9 h-9 fill-none stroke-current" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.8" d="M5 13l4 4L19 7" />
+              <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-500 flex items-center justify-center text-emerald-600 shadow-xs py-2 animate-in zoom-in-75 duration-200">
+                <svg className="w-6 h-6 fill-none stroke-current" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
                 </svg>
               </div>
             )}
 
             <div>
-              <h3 className="text-base sm:text-lg font-black tracking-tight text-slate-900">
+              <h3 className="text-base sm:text-lg font-bold tracking-tight text-slate-900">
                 {floatingUpdateModal.title}
               </h3>
               <p className="text-xs text-slate-500 font-medium mt-1">
@@ -1312,7 +1311,7 @@ export default function App() {
               <div
                 className={`h-full rounded-full transition-all duration-300 ${
                   floatingUpdateModal.status === 'loading'
-                    ? 'w-2/3 bg-[#E50914] animate-pulse'
+                    ? 'w-2/3 bg-red-600 animate-pulse'
                     : 'w-full bg-emerald-500'
                 }`}
               />

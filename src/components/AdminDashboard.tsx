@@ -314,10 +314,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           setSummaryDepoFilter('ALL');
                           setSummaryVendorFilter('ALL');
                         }}
-                        className="text-[10px] font-bold text-red-600 hover:text-red-700 cursor-pointer flex items-center gap-1"
+                        className="text-[11px] font-medium text-red-600 hover:text-red-700 cursor-pointer"
                       >
-                        <span>✕</span>
-                        <span>Reset Filter</span>
+                        Reset Filter
                       </button>
                     </div>
                   )}
@@ -473,11 +472,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <select
                         value={mobileReadinessFilter}
                         onChange={(e) => setMobileReadinessFilter(e.target.value as any)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-slate-800 focus:outline-hidden focus:border-red-500 cursor-pointer"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs font-medium text-slate-800 focus:outline-hidden focus:border-red-500 cursor-pointer"
                       >
                         <option value="ALL">Semua Kesiapan</option>
-                        <option value="Ready">✓ Ready</option>
-                        <option value="Tidak Ready">⚠️ Tidak Ready</option>
+                        <option value="Ready">Ready</option>
+                        <option value="Tidak Ready">Tidak Ready</option>
                       </select>
                     </div>
 
@@ -543,9 +542,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           setMobileReadinessFilter('ALL');
                           setMobileSearch('');
                         }}
-                        className="text-[10.5px] font-bold text-red-600 hover:underline cursor-pointer"
+                        className="text-[11px] font-medium text-red-600 hover:underline cursor-pointer"
                       >
-                        ✕ Reset Filter
+                        Reset Filter
                       </button>
                     </div>
                   )}
@@ -555,8 +554,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               {/* ONLY LIST TRUK IS SCROLLABLE (KARTU RINGKAS & CLEAN) */}
               <div className="flex-1 overflow-y-auto space-y-2 pr-0.5 [scrollbar-width:thin]">
                 {mobileFilteredTrucks.length === 0 ? (
-                  <div className="p-8 text-center bg-white rounded-2xl border border-slate-200 text-slate-400">
-                    <div className="text-2xl mb-1">🚚</div>
+                  <div className="p-8 text-center bg-white rounded-xl border border-slate-200 text-slate-400">
                     <span className="text-xs">Tidak ada data armada yang cocok.</span>
                   </div>
                 ) : (
@@ -575,29 +573,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         {/* Row 1: Nopol, Vendor, Depo & Readiness Status */}
                         <div className="flex items-center justify-between gap-1.5">
                           <div className="flex items-center gap-1.5 min-w-0">
-                            <span className="font-mono text-xs font-black text-slate-900 tracking-tight shrink-0">
+                            <span className="font-mono text-xs font-bold text-slate-900 tracking-tight shrink-0">
                               {truck.nomorPolisi}
                             </span>
-                            <span className="px-1.5 py-0.2 rounded text-[9.5px] font-mono font-bold bg-slate-900 text-white shrink-0">
+                            <span className="px-1.5 py-0.2 rounded text-[10px] font-mono font-medium bg-slate-900 text-white shrink-0">
                               {truck.transporter}
                             </span>
-                            <span className="px-1.5 py-0.2 rounded text-[9.5px] font-medium bg-slate-100 text-slate-600 truncate">
+                            <span className="px-1.5 py-0.2 rounded text-[10px] font-medium bg-slate-100 text-slate-600 truncate">
                               {truck.depo || 'Karawang'}
                             </span>
                           </div>
 
                           <div className="shrink-0">
                             {isNonaktif ? (
-                              <span className="text-[9.5px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
                                 Nonaktif
                               </span>
                             ) : isReady ? (
-                              <span className="text-[9.5px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                                ✓ Ready
+                              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                                Ready
                               </span>
                             ) : (
-                              <span className="text-[9.5px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800">
-                                ⚠️ Kendala
+                              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-rose-100 text-rose-800">
+                                Kendala
                               </span>
                             )}
                           </div>
@@ -659,12 +657,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden mb-1.5">
                         <div className="h-full bg-blue-600 rounded-full" style={{ width: `${v.percent}%` }} />
                       </div>
-                      <div className="flex items-center justify-between text-[9.5px]">
+                      <div className="flex items-center justify-between text-[10px]">
                         <span className="text-slate-500 font-medium">{v.ready}/{v.aktif} Ready</span>
                         {v.isUpdated ? (
-                          <span className="text-emerald-700 font-bold">✓ Update</span>
+                          <span className="text-emerald-700 font-medium">Update</span>
                         ) : (
-                          <span className="text-rose-600 font-bold">Belum</span>
+                          <span className="text-rose-600 font-medium">Belum</span>
                         )}
                       </div>
                     </div>
@@ -765,68 +763,68 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <button
                   type="button"
                   onClick={onOpenAddModal}
-                  className="p-3 rounded-xl bg-slate-900 active:bg-slate-800 text-white font-bold text-xs flex flex-col justify-between gap-2 shadow-xs cursor-pointer"
+                  className="p-3.5 rounded-xl bg-slate-900 active:bg-slate-800 text-white font-medium text-xs flex items-center justify-between shadow-xs cursor-pointer"
                 >
-                  <span className="text-base">🚚</span>
-                  <span>+ Tambah Truk</span>
+                  <span>Tambah Truk</span>
+                  <span className="text-slate-400 font-mono">+</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setIsSnapshotModalOpen(true)}
-                  className="p-3 rounded-xl bg-white border border-slate-200 active:bg-slate-50 text-slate-800 font-bold text-xs flex flex-col justify-between gap-2 shadow-xs cursor-pointer"
+                  className="p-3.5 rounded-xl bg-white border border-slate-200 active:bg-slate-50 text-slate-800 font-medium text-xs flex items-center justify-between shadow-xs cursor-pointer"
                 >
-                  <span className="text-base">📋</span>
                   <span>Arsip Database</span>
+                  <span className="text-slate-400">→</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={onOpenEmailModal}
-                  className="p-3 rounded-xl bg-white border border-slate-200 active:bg-slate-50 text-slate-800 font-bold text-xs flex flex-col justify-between gap-2 shadow-xs cursor-pointer"
+                  className="p-3.5 rounded-xl bg-white border border-slate-200 active:bg-slate-50 text-slate-800 font-medium text-xs flex items-center justify-between shadow-xs cursor-pointer"
                 >
-                  <span className="text-base">✉️</span>
                   <span>Rekap Email</span>
+                  <span className="text-slate-400">→</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={onOpenApiSettings}
-                  className="p-3 rounded-xl bg-white border border-slate-200 active:bg-slate-50 text-slate-800 font-bold text-xs flex flex-col justify-between gap-2 shadow-xs cursor-pointer"
+                  className="p-3.5 rounded-xl bg-white border border-slate-200 active:bg-slate-50 text-slate-800 font-medium text-xs flex items-center justify-between shadow-xs cursor-pointer"
                 >
-                  <span className="text-base">⚙️</span>
                   <span>Panel API</span>
+                  <span className="text-slate-400">→</span>
                 </button>
 
                 {onOpenChangePassword && (
                   <button
                     type="button"
                     onClick={onOpenChangePassword}
-                    className="p-3 rounded-xl bg-white border border-slate-200 active:bg-slate-50 text-slate-800 font-bold text-xs flex flex-col justify-between gap-2 shadow-xs cursor-pointer"
+                    className="p-3.5 rounded-xl bg-white border border-slate-200 active:bg-slate-50 text-slate-800 font-medium text-xs flex items-center justify-between shadow-xs cursor-pointer"
                   >
-                    <span className="text-base">🔒</span>
                     <span>Ubah Password</span>
+                    <span className="text-slate-400">→</span>
                   </button>
                 )}
 
                 <button
                   type="button"
                   onClick={onExportCsv}
-                  className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 active:bg-emerald-100 text-emerald-800 font-bold text-xs flex flex-col justify-between gap-2 shadow-xs cursor-pointer"
+                  className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 active:bg-emerald-100 text-emerald-800 font-medium text-xs flex items-center justify-between shadow-xs cursor-pointer"
                 >
-                  <span className="text-base">📥</span>
                   <span>Unduh CSV</span>
+                  <span className="text-emerald-600">↓</span>
                 </button>
 
                 {onResetReadiness && (
                   <button
                     type="button"
                     onClick={onResetReadiness}
-                    className="p-3 rounded-xl bg-rose-50 border border-rose-200 active:bg-rose-100 text-rose-800 font-bold text-xs flex flex-col justify-between gap-2 shadow-xs cursor-pointer"
+                    className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 active:bg-rose-100 text-rose-800 font-medium text-xs flex items-center justify-between shadow-xs cursor-pointer"
                     title="Bersihkan semua riwayat update kesiapan armada hari ini"
                   >
-                    <span className="text-base">🔄</span>
                     <span>Reset Kesiapan</span>
+                    <span className="text-rose-600">↺</span>
                   </button>
                 )}
               </div>
@@ -839,71 +837,66 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* =================================================================== */}
         {/* BOTTOM NAVIGATION BAR (FIXED, THUMB-FRIENDLY, NATIVE APP FEEL)      */}
         {/* =================================================================== */}
-        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-2 py-1.5 flex items-center justify-around shadow-lg">
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-2 py-2 flex items-center justify-around shadow-sm">
           
           <button
             type="button"
             onClick={() => setMobileTab('ringkasan')}
-            className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition cursor-pointer ${
+            className={`py-1 px-2.5 rounded-lg text-xs transition cursor-pointer ${
               mobileTab === 'ringkasan'
-                ? 'text-[#E50914] font-black'
-                : 'text-slate-500 font-semibold'
+                ? 'bg-slate-900 text-white font-semibold'
+                : 'text-slate-600 hover:text-slate-900 font-medium'
             }`}
           >
-            <span className="text-base leading-none">📊</span>
-            <span className="text-[10px] mt-0.5">Ringkasan</span>
+            Ringkasan
           </button>
 
           <button
             type="button"
             onClick={() => setMobileTab('armada')}
-            className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition relative cursor-pointer ${
+            className={`py-1 px-2.5 rounded-lg text-xs transition cursor-pointer ${
               mobileTab === 'armada'
-                ? 'text-[#E50914] font-black'
-                : 'text-slate-500 font-semibold'
+                ? 'bg-slate-900 text-white font-semibold'
+                : 'text-slate-600 hover:text-slate-900 font-medium'
             }`}
           >
-            <span className="text-base leading-none">🚚</span>
-            <span className="text-[10px] mt-0.5">Armada</span>
+            Armada
           </button>
 
           <button
             type="button"
             onClick={() => setMobileTab('vendor')}
-            className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition cursor-pointer ${
+            className={`py-1 px-2.5 rounded-lg text-xs transition cursor-pointer ${
               mobileTab === 'vendor'
-                ? 'text-[#E50914] font-black'
-                : 'text-slate-500 font-semibold'
+                ? 'bg-slate-900 text-white font-semibold'
+                : 'text-slate-600 hover:text-slate-900 font-medium'
             }`}
           >
-            <span className="text-base leading-none">🏢</span>
-            <span className="text-[10px] mt-0.5">Vendor</span>
+            Vendor
           </button>
 
           <button
             type="button"
             onClick={() => setMobileTab('rekap')}
-            className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition cursor-pointer ${
+            className={`py-1 px-2.5 rounded-lg text-xs transition cursor-pointer ${
               mobileTab === 'rekap'
-                ? 'text-[#E50914] font-black'
-                : 'text-slate-500 font-semibold'
+                ? 'bg-slate-900 text-white font-semibold'
+                : 'text-slate-600 hover:text-slate-900 font-medium'
             }`}
           >
-            <span className="text-base leading-none">📑</span>
-            <span className="text-[10px] mt-0.5">Rekap</span>
+            Rekap
           </button>
 
           <button
             type="button"
             onClick={() => setMobileTab('kontrol')}
-            className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition cursor-pointer ${
+            className={`py-1 px-2.5 rounded-lg text-xs transition cursor-pointer ${
               mobileTab === 'kontrol'
-                ? 'text-[#E50914] font-black'
-                : 'text-slate-500 font-semibold'
+                ? 'bg-slate-900 text-white font-semibold'
+                : 'text-slate-600 hover:text-slate-900 font-medium'
             }`}
           >
-            <span className="text-base leading-none">⚙️</span>
-            <span className="text-[10px] mt-0.5">Kontrol</span>
+            Kontrol
           </button>
         </div>
 
@@ -944,26 +937,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <button
                   type="button"
                   onClick={() => setActiveDesktopView('monitoring')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
                     activeDesktopView === 'monitoring'
                       ? 'bg-slate-700 text-white shadow-xs'
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
-                  <span>📋</span>
-                  <span>Monitoring Live</span>
+                  Monitoring Live
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveDesktopView('rekap')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
                     activeDesktopView === 'rekap'
-                      ? 'bg-[#E50914] text-white shadow-xs'
+                      ? 'bg-red-600 text-white shadow-xs'
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
-                  <span>📊</span>
-                  <span>Rekap Data</span>
+                  Rekap Data
                 </button>
               </div>
 
@@ -1212,15 +1203,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   >
                     <div>
                       <div className="flex items-center justify-between mb-1">
-                        <span className="font-mono text-xs font-black px-2 py-0.5 rounded bg-slate-900 text-white">
+                        <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-slate-900 text-white">
                           {v.code}
                         </span>
                         {v.isUpdated ? (
-                          <span className="text-[9.5px] font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.2 rounded-full">
-                            ✓ Update
+                          <span className="text-[10px] font-medium text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md">
+                            Update
                           </span>
                         ) : (
-                          <span className="text-[9.5px] font-bold text-rose-700 bg-rose-100 px-1.5 py-0.2 rounded-full">
+                          <span className="text-[10px] font-medium text-rose-700 bg-rose-100 px-2 py-0.5 rounded-md">
                             Belum
                           </span>
                         )}

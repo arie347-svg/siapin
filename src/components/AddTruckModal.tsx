@@ -94,8 +94,8 @@ export const AddTruckModal: React.FC<AddTruckModalProps> = ({
         {/* Form Body (Scrollable bila layar HP kecil) */}
         <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-2.5 overflow-y-auto flex-1 text-xs">
           {error && (
-            <div className="p-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-[11px] font-semibold">
-              ⚠️ {error}
+            <div className="p-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-[11px] font-medium">
+              {error}
             </div>
           )}
 

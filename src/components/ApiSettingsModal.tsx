@@ -248,7 +248,7 @@ export const ApiSettingsModal: React.FC<ApiSettingsModalProps> = ({
                     </span>
                   </div>
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                    🟢 Terhubung Live
+                    Terhubung Live
                   </span>
                 </div>
                 <p className="text-slate-300 text-xs">
@@ -293,7 +293,7 @@ export const ApiSettingsModal: React.FC<ApiSettingsModalProps> = ({
                   }`}
                 >
                   <div className="font-bold mb-0.5">
-                    {appSheetResult.success ? '✓ Berhasil Terhubung' : 'Peringatan Koneksi'}
+                    {appSheetResult.success ? 'Berhasil Terhubung' : 'Peringatan Koneksi'}
                   </div>
                   <p>{appSheetResult.message}</p>
                 </div>
@@ -303,7 +303,6 @@ export const ApiSettingsModal: React.FC<ApiSettingsModalProps> = ({
               <div className="p-3.5 bg-blue-50/70 border border-blue-200 rounded-xl space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="text-base">🚚</span>
                     <span className="font-bold text-slate-800 text-xs">
                       Standarisasi Master Sopir (Data Truk 2)
                     </span>
@@ -328,10 +327,7 @@ export const ApiSettingsModal: React.FC<ApiSettingsModalProps> = ({
                         <span>Menyinkronkan Master...</span>
                       </>
                     ) : (
-                      <>
-                        <span>🔄</span>
-                        <span>Sinkronkan Master Sopir ke Data Truk 2</span>
-                      </>
+                      <span>Sinkronkan Master Sopir ke Data Truk 2</span>
                     )}
                   </button>
                   <span className="text-[10px] text-slate-400">
@@ -348,7 +344,7 @@ export const ApiSettingsModal: React.FC<ApiSettingsModalProps> = ({
                     }`}
                   >
                     <div className="font-bold mb-0.5">
-                      {driverSyncResult.success ? '✓ Sinkronisasi Master Selesai' : 'Gagal Sinkronisasi'}
+                      {driverSyncResult.success ? 'Sinkronisasi Master Selesai' : 'Gagal Sinkronisasi'}
                     </div>
                     <p>{driverSyncResult.message}</p>
                   </div>
@@ -418,7 +414,7 @@ export const ApiSettingsModal: React.FC<ApiSettingsModalProps> = ({
                   onClick={handleCopyScript}
                   className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded text-xs transition cursor-pointer"
                 >
-                  {isCopied ? '✓ Tersalin!' : 'Salin Kode'}
+                  {isCopied ? 'Tersalin' : 'Salin Kode'}
                 </button>
               </div>
               <pre className="p-3 bg-slate-900 text-slate-200 font-mono text-[11px] rounded-md overflow-x-auto max-h-60 leading-relaxed">

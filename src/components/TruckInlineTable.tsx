@@ -542,33 +542,28 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
           {/* Slim Elegant Locked Notification Bar */}
           {isLocked && (
             <div className="bg-slate-900 text-slate-200 text-xs py-1.5 px-3 border-b border-slate-800 flex items-center justify-between shrink-0 shadow-2xs">
-              <div className="flex items-center gap-2">
-                <span className="text-amber-400 text-xs">🔒</span>
-                <span className="font-semibold text-[11px] text-slate-200">
-                  Pengisian Terkunci (Batas Cut-Off 17:00 WIB) — Mode Hanya Baca
-                </span>
-              </div>
-              <span className="text-[10px] text-slate-400 hidden sm:inline">
+              <span className="font-medium text-xs text-slate-200">
+                Pengisian Terkunci (Batas Cut-Off 17:00 WIB) — Mode Hanya Baca
+              </span>
+              <span className="text-[11px] text-slate-400 hidden sm:inline">
                 Akses edit dapat dibuka oleh Admin Distribusi
               </span>
             </div>
           )}
 
-          {/* Compact Status Bar (Tanggal Hari Ini & Status Konfirmasi Ringkas) */}
+          {/* Compact Status Bar */}
           <div className="bg-slate-50 border-b border-slate-200 px-3 py-1.5 flex items-center justify-between text-xs shrink-0 select-none">
-            <span className="text-[11px] sm:text-xs font-black text-slate-800 tracking-tight">
+            <span className="text-xs font-semibold text-slate-800">
               {formatWIBDateIndo(operationalDate)}
             </span>
             <div>
               {isConfirmedToday(lastConfirmedTime) ? (
-                <span className="inline-flex items-center gap-1 text-[9.5px] font-bold text-emerald-800 bg-emerald-100/90 border border-emerald-300 px-2 py-0.5 rounded-full">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
-                  ✓ Terkonfirmasi
+                <span className="text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                  Terkonfirmasi
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 text-[9.5px] font-extrabold text-amber-900 bg-amber-100/90 border border-amber-300 px-2 py-0.5 rounded-full">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse"></span>
-                  ● Belum Konfirmasi
+                <span className="text-xs font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                  Belum Konfirmasi
                 </span>
               )}
             </div>
@@ -576,26 +571,26 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
 
           <div className="w-full overflow-y-auto overflow-x-hidden flex-1 max-h-[calc(100dvh-165px)] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
             
-            {/* TABEL ARMADA AKTIF (DENGAN KONTROL LENGKAP) */}
+            {/* TABEL ARMADA AKTIF */}
             <table className="w-full table-fixed text-left border-collapse">
               <colgroup>
-                <col className="w-4 sm:w-6" />
-                <col className="w-[82px] sm:w-[110px]" />
-                <col className="w-[66px] sm:w-[95px]" />
+                <col className="w-5 sm:w-7" />
+                <col className="w-[85px] sm:w-[115px]" />
+                <col className="w-[70px] sm:w-[100px]" />
+                <col className="w-[26px] sm:w-[34px]" />
                 <col className="w-[24px] sm:w-[32px]" />
-                <col className="w-[22px] sm:w-[30px]" />
-                <col className="w-[64px] sm:w-[78px]" />
+                <col className="w-[66px] sm:w-[82px]" />
               </colgroup>
-              <thead className="sticky top-0 z-20 bg-slate-100/95 backdrop-blur-xs border-b border-slate-200 text-slate-700 font-extrabold uppercase text-[7.5px] sm:text-[9px] tracking-tight select-none shadow-2xs">
+              <thead className="sticky top-0 z-20 bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase text-[10px] tracking-wider select-none">
                 <tr>
-                  <th className="py-2 px-0.5 text-center bg-slate-100">#</th>
-                  <th className="py-2 px-0.5 whitespace-nowrap bg-slate-100">No. Polisi</th>
-                  <th className="py-2 px-0.5 bg-slate-100">Sopir</th>
-                  <th className="py-2 px-0.5 text-center bg-slate-100">Kap</th>
-                  <th className="py-2 px-0.5 text-center bg-slate-100" title="Status Armada: Aktif/Nonaktif">
+                  <th className="py-2 px-1 text-center">#</th>
+                  <th className="py-2 px-1 whitespace-nowrap">No. Polisi</th>
+                  <th className="py-2 px-1">Sopir</th>
+                  <th className="py-2 px-1 text-center">Kap</th>
+                  <th className="py-2 px-1 text-center" title="Status Armada: Aktif/Nonaktif">
                     Aktif
                   </th>
-                  <th className="py-2 px-0.5 text-center bg-slate-100">Kesiapan</th>
+                  <th className="py-2 px-1 text-center">Kesiapan</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
@@ -620,31 +615,31 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
                         onClick={() => !isLocked && handleOpenRowEdit(truck, index + 1)}
                         className={`transition-colors ${
                           !isLocked
-                            ? 'cursor-pointer hover:bg-blue-50/70'
-                            : 'hover:bg-slate-50/60'
+                            ? 'cursor-pointer hover:bg-slate-50'
+                            : 'hover:bg-slate-50/50'
                         }`}
                       >
                         {/* No */}
-                        <td className="py-1 px-0.5 text-center font-mono text-[8.5px] sm:text-[9.5px] text-slate-400 font-bold select-none">
+                        <td className="py-1.5 px-1 text-center font-mono text-[11px] text-slate-400 select-none">
                           {index + 1}
                         </td>
 
                         {/* Nomor Polisi & Riwayat Tanggal/Jam Update */}
-                        <td className="py-1 px-0.5">
-                          <span className="font-mono font-extrabold text-[9px] sm:text-[11px] text-slate-900 block truncate leading-tight">
+                        <td className="py-1.5 px-1">
+                          <span className="font-mono font-semibold text-xs text-slate-900 block truncate">
                             {row.nomorPolisi || '-'}
                           </span>
-                          <div className="flex items-center gap-1 px-0.5 mt-0.5">
+                          <div className="mt-0.5">
                             {isConfirmedToday(truck.terakhirUpdate) ? (
                               <span
-                                className="text-[7.5px] font-mono font-bold text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200"
+                                className="text-[10px] font-mono text-emerald-700"
                                 title={`Riwayat update: ${truck.terakhirUpdate}`}
                               >
-                                ✓ {truck.terakhirUpdate.split(',')[1]?.trim() || truck.terakhirUpdate}
+                                {truck.terakhirUpdate.split(',')[1]?.trim() || truck.terakhirUpdate}
                               </span>
                             ) : (
                               <span
-                                className="text-[7.5px] font-mono text-slate-400 bg-slate-100 px-1 py-0.2 rounded"
+                                className="text-[10px] font-mono text-slate-400"
                                 title="Belum diperbarui pada tanggal ini"
                               >
                                 Belum update
@@ -654,9 +649,9 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
                         </td>
 
                         {/* Nama Sopir */}
-                        <td className="py-1 px-0.5">
+                        <td className="py-1.5 px-1">
                           <span
-                            className="font-semibold text-[8.5px] sm:text-[10px] text-slate-800 block truncate leading-tight uppercase"
+                            className="font-medium text-xs text-slate-800 block truncate uppercase"
                             title={row.namaSopir || 'Belum diisi'}
                           >
                             {row.namaSopir || <span className="text-slate-400 italic font-normal">-</span>}
@@ -664,14 +659,14 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
                         </td>
 
                         {/* Kapasitas */}
-                        <td className="py-1 px-0 text-center">
-                          <span className="font-mono font-bold text-[8.5px] sm:text-[10px] text-slate-700 block leading-tight">
+                        <td className="py-1.5 px-1 text-center">
+                          <span className="font-mono font-medium text-xs text-slate-700 block">
                             {row.kapasitas || '28'}
                           </span>
                         </td>
 
-                        {/* Status Armada: ICON AKSI */}
-                        <td className="py-1 px-0.5 text-center">
+                        {/* Status Armada Toggle */}
+                        <td className="py-1.5 px-1 text-center">
                           <button
                             type="button"
                             onClick={(e) => {
@@ -680,18 +675,17 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
                             }}
                             disabled={isLocked}
                             title="Armada Aktif (Klik untuk Nonaktifkan)"
-                            className="p-0.5 rounded hover:bg-slate-200 transition cursor-pointer inline-flex items-center justify-center"
+                            className="p-1 rounded-md hover:bg-slate-100 transition cursor-pointer inline-flex items-center justify-center text-emerald-600"
                           >
-                            <svg className="w-3.5 h-3.5 text-emerald-600" viewBox="0 0 20 20" fill="currentColor">
+                            <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
                               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                             </svg>
                           </button>
                         </td>
 
                         {/* Kesiapan Kirim */}
-                        <td className="py-1 px-0.5 text-center">
+                        <td className="py-1.5 px-1 text-center">
                           {isReady ? (
-                            /* JIKA READY: HANYA TOMBOL READY (ICON COMMENT TIDAK MUNCUL) */
                             <button
                               type="button"
                               onClick={(e) => {
@@ -699,14 +693,13 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
                                 handleToggleReadiness(truck);
                               }}
                               disabled={isLocked}
-                              title="Status Ready Kirim (Klik untuk ubah ke Tidak Ready)"
-                              className="bg-blue-600 hover:bg-blue-700 text-white border-blue-700 text-[8px] sm:text-[9.5px] font-extrabold px-2 py-0.5 rounded transition cursor-pointer border leading-none shadow-2xs"
+                              title="Status Ready (Klik untuk ubah ke Tidak Ready)"
+                              className="bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-medium px-2.5 py-1 rounded-md transition cursor-pointer shadow-xs leading-none"
                             >
-                              READY
+                              Ready
                             </button>
                           ) : (
-                            /* JIKA TIDAK READY: TOMBOL TIDAK + ICON COMMENT (UNTUK LIHAT ALASAN / BUKA KUNCI) */
-                            <div className="inline-flex items-center justify-center gap-0.5">
+                            <div className="inline-flex items-center justify-center gap-1">
                               <button
                                 type="button"
                                 onClick={(e) => {
@@ -715,12 +708,11 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
                                 }}
                                 disabled={isLocked}
                                 title="Status Tidak Ready (Klik untuk ubah ke Ready)"
-                                className="bg-red-600 hover:bg-red-700 text-white border-red-700 text-[7.5px] sm:text-[9px] font-extrabold px-1.5 py-0.5 rounded transition cursor-pointer border leading-none shadow-2xs"
+                                className="bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-medium px-2 py-1 rounded-md transition cursor-pointer shadow-xs leading-none"
                               >
-                                TIDAK
+                                Tidak
                               </button>
 
-                              {/* Icon Comment / Catatan Alasan */}
                               <button
                                 type="button"
                                 onClick={(e) => {
@@ -729,20 +721,20 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
                                 }}
                                 title={
                                   row.keterangan
-                                    ? `Alasan: "${row.keterangan}" (Klik untuk lihat & buka kunci edit)`
-                                    : 'Isi Catatan Alasan'
+                                    ? `Alasan: "${row.keterangan}"`
+                                    : 'Isi Alasan'
                                 }
-                                className={`p-0.5 rounded transition cursor-pointer shrink-0 border ${
+                                className={`p-1 rounded-md transition cursor-pointer shrink-0 border ${
                                   row.keterangan
-                                    ? 'text-red-700 bg-red-50 hover:bg-red-100 border-red-300'
-                                    : 'text-amber-700 bg-amber-50 hover:bg-amber-100 border-amber-300 animate-pulse'
+                                    ? 'text-rose-700 bg-rose-50 hover:bg-rose-100 border-rose-200'
+                                    : 'text-amber-700 bg-amber-50 hover:bg-amber-100 border-amber-200'
                                 }`}
                               >
-                                <svg className="w-3 h-3 fill-none stroke-current" viewBox="0 0 24 24">
+                                <svg className="w-3.5 h-3.5 fill-none stroke-current" viewBox="0 0 24 24">
                                   <path
                                     strokeLinecap="round"
                                     strokeLinejoin="round"
-                                    strokeWidth="2.2"
+                                    strokeWidth="2"
                                     d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
                                   />
                                 </svg>
@@ -756,28 +748,27 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
               </tbody>
             </table>
 
-            {/* TABEL TERPISAH: ARMADA NONAKTIF (DI BAWAH TABEL UTAMA, TANPA TOMBOL KESIAPAN & COMMENT) */}
+            {/* TABEL TERPISAH: ARMADA NONAKTIF */}
             {sortedTrucks.filter((t) => (rowStates[t.id]?.status || t.status) === 'Nonaktif').length > 0 && (
-              <div className="mt-3 border-t-2 border-slate-300 bg-slate-50/95">
-                <div className="bg-slate-200/90 px-3 py-1.5 flex items-center justify-between border-b border-slate-300 select-none">
-                  <span className="text-[9px] sm:text-[10.5px] font-extrabold uppercase text-slate-700 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-rose-500" />
-                    Armada Nonaktif ({sortedTrucks.filter((t) => (rowStates[t.id]?.status || t.status) === 'Nonaktif').length} Unit)
+              <div className="mt-3 border-t border-slate-200 bg-slate-50/70">
+                <div className="bg-slate-100 px-3 py-1.5 flex items-center justify-between border-b border-slate-200 select-none">
+                  <span className="text-xs font-semibold text-slate-700">
+                    Armada Nonaktif ({sortedTrucks.filter((t) => (rowStates[t.id]?.status || t.status) === 'Nonaktif').length} Truk)
                   </span>
-                  <span className="text-[8px] sm:text-[9px] text-slate-500 font-medium">
-                    (Klik ikon ✕ untuk aktifkan kembali)
+                  <span className="text-[11px] text-slate-500">
+                    Klik ✕ untuk aktifkan kembali
                   </span>
                 </div>
-                <table className="w-full table-fixed text-left border-collapse opacity-85">
+                <table className="w-full table-fixed text-left border-collapse">
                   <colgroup>
-                    <col className="w-4 sm:w-6" />
-                    <col className="w-[82px] sm:w-[110px]" />
-                    <col className="w-[66px] sm:w-[95px]" />
+                    <col className="w-5 sm:w-7" />
+                    <col className="w-[85px] sm:w-[115px]" />
+                    <col className="w-[70px] sm:w-[100px]" />
+                    <col className="w-[26px] sm:w-[34px]" />
                     <col className="w-[24px] sm:w-[32px]" />
-                    <col className="w-[22px] sm:w-[30px]" />
-                    <col className="w-[64px] sm:w-[78px]" />
+                    <col className="w-[66px] sm:w-[82px]" />
                   </colgroup>
-                  <tbody className="divide-y divide-slate-200 font-medium bg-slate-100/60">
+                  <tbody className="divide-y divide-slate-200 font-medium">
                     {sortedTrucks
                       .filter((t) => (rowStates[t.id]?.status || t.status) === 'Nonaktif')
                       .map((truck, index) => {
@@ -798,29 +789,29 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
                             onClick={() => !isLocked && handleOpenRowEdit(truck, index + 1)}
                             className={`transition-colors ${
                               !isLocked
-                                ? 'cursor-pointer hover:bg-blue-100/70'
-                                : 'hover:bg-slate-200/50'
+                                ? 'cursor-pointer hover:bg-slate-100'
+                                : 'hover:bg-slate-100/50'
                             }`}
                           >
-                            <td className="py-1 px-0.5 text-center font-mono text-[8.5px] sm:text-[9.5px] text-slate-400 font-bold select-none">
+                            <td className="py-1.5 px-1 text-center font-mono text-[11px] text-slate-400 select-none">
                               {index + 1}
                             </td>
-                            <td className="py-1 px-0.5">
-                              <span className="font-mono font-bold text-[9px] sm:text-[11px] text-slate-600 block truncate leading-tight">
+                            <td className="py-1.5 px-1">
+                              <span className="font-mono font-medium text-xs text-slate-600 block truncate">
                                 {row.nomorPolisi || '-'}
                               </span>
                             </td>
-                            <td className="py-1 px-0.5">
-                              <span className="font-medium text-[8.5px] sm:text-[10px] text-slate-600 block truncate leading-tight uppercase">
+                            <td className="py-1.5 px-1">
+                              <span className="font-medium text-xs text-slate-600 block truncate uppercase">
                                 {row.namaSopir || '-'}
                               </span>
                             </td>
-                            <td className="py-1 px-0 text-center">
-                              <span className="font-mono font-medium text-[8.5px] sm:text-[10px] text-slate-600 block leading-tight">
+                            <td className="py-1.5 px-1 text-center">
+                              <span className="font-mono font-medium text-xs text-slate-600 block">
                                 {row.kapasitas || '28'}
                               </span>
                             </td>
-                            <td className="py-1 px-0.5 text-center">
+                            <td className="py-1.5 px-1 text-center">
                               <button
                                 type="button"
                                 onClick={(e) => {
@@ -829,16 +820,15 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
                                 }}
                                 disabled={isLocked}
                                 title="Armada Nonaktif (Klik untuk Aktifkan kembali)"
-                                className="p-0.5 rounded hover:bg-slate-300 transition cursor-pointer inline-flex items-center justify-center"
+                                className="p-1 rounded-md hover:bg-slate-200 transition cursor-pointer inline-flex items-center justify-center text-slate-400 hover:text-slate-700"
                               >
-                                <svg className="w-3.5 h-3.5 text-rose-500" viewBox="0 0 20 20" fill="currentColor">
+                                <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
                                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                                 </svg>
                               </button>
                             </td>
-                            {/* TOMBOL KESIAPAN DAN COMMENT HILANG PADA NONAKTIF */}
-                            <td className="py-1 px-0.5 text-center">
-                              <span className="text-[8px] sm:text-[9px] font-semibold text-slate-400 italic">
+                            <td className="py-1.5 px-1 text-center">
+                              <span className="text-[11px] font-medium text-slate-400">
                                 Nonaktif
                               </span>
                             </td>
@@ -1067,16 +1057,16 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
                             <span className="text-[10px] text-slate-400 font-medium">Menyimpan...</span>
                           )}
                           {row.saveStatus === 'saved' && (
-                            <span className="text-[10px] text-emerald-600 font-bold">✓ Tersimpan</span>
+                            <span className="text-[10px] text-emerald-600 font-medium">Tersimpan</span>
                           )}
                           {row.saveStatus === 'error' && (
-                            <span className="text-[10px] text-red-600 font-bold">Gagal</span>
+                            <span className="text-[10px] text-red-600 font-medium">Gagal</span>
                           )}
                           <button
                             type="button"
                             onClick={() => onDeleteRequest(truck)}
                             disabled={isLocked}
-                            className="px-2 py-0.5 text-xs text-red-600 hover:bg-red-50 rounded font-semibold transition cursor-pointer"
+                            className="px-2 py-0.5 text-xs text-red-600 hover:bg-red-50 rounded font-medium transition cursor-pointer"
                           >
                             Hapus
                           </button>
@@ -1095,16 +1085,16 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
       {/* 3. FLOATING NOTE MODAL (POPOVER UNTUK ALASAN TIDAK READY)                  */}
       {/* ========================================================================= */}
       {floatingNoteTruck && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-sm w-full p-4 sm:p-5 text-left">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-xl shadow-xl border border-slate-200 max-w-sm w-full p-4 sm:p-5 text-left">
             
             {/* Modal Header */}
             <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
               <div>
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-200">
-                  ALASAN TIDAK READY
+                <span className="text-[10px] font-semibold text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                  Alasan Tidak Ready
                 </span>
-                <h3 className="font-mono font-bold text-xs sm:text-sm text-slate-900 mt-1">
+                <h3 className="font-mono font-semibold text-xs sm:text-sm text-slate-900 mt-1">
                   {floatingNoteTruck.nomorPolisi} ({floatingNoteTruck.namaSopir || 'Sopir'})
                 </h3>
               </div>
@@ -1121,21 +1111,21 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
             {!isNoteModalInEditMode && (rowStates[floatingNoteTruck.id]?.keterangan || floatingNoteText) ? (
               /* A. MODE TERKUNCI: TAMPILKAN ALASAN DENGAN ICON GEMBOK UNTUK BUKA KUNCINYA */
               <div className="mt-3.5 space-y-3">
-                <div className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">
-                  Alasan / Keterangan Terpilih:
+                <div className="text-[11px] font-medium text-slate-600">
+                  Alasan Terpilih:
                 </div>
 
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-center justify-between gap-2 shadow-2xs">
-                  <div className="text-xs font-extrabold text-red-700 bg-red-50/80 border border-red-200 px-2.5 py-1.5 rounded-lg flex-1 truncate">
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5 flex items-center justify-between gap-2 shadow-2xs">
+                  <div className="text-xs font-semibold text-rose-700 bg-rose-50/80 border border-rose-200 px-2.5 py-1.5 rounded-md flex-1 truncate">
                     {floatingNoteText || rowStates[floatingNoteTruck.id]?.keterangan}
                   </div>
 
-                  {/* Tombol Icon Gembok untuk Membuka Kunci */}
+                  {/* Tombol Buka Kunci */}
                   <button
                     type="button"
                     onClick={() => setIsNoteModalInEditMode(true)}
                     title="Buka Kunci untuk Mengedit Alasan"
-                    className="px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition cursor-pointer shrink-0"
+                    className="px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-medium text-xs flex items-center gap-1 shadow-xs transition cursor-pointer shrink-0"
                   >
                     <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
@@ -1144,9 +1134,8 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
                   </button>
                 </div>
 
-                <div className="text-[10px] text-slate-500 flex items-center gap-1">
-                  <span>🔒</span>
-                  <span>Alasan terkunci. Klik tombol <strong>Buka Kunci</strong> jika ingin mengedit.</span>
+                <div className="text-[11px] text-slate-500">
+                  Alasan terkunci. Klik <strong>Buka Kunci</strong> jika ingin mengubah.
                 </div>
 
                 {/* Footer Mode Terkunci */}
@@ -1154,14 +1143,14 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
                   <button
                     type="button"
                     onClick={handleDeleteFloatingNote}
-                    className="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-rose-600 hover:bg-rose-50 cursor-pointer"
+                    className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-rose-600 hover:bg-rose-50 cursor-pointer"
                   >
                     Hapus Alasan
                   </button>
                   <button
                     type="button"
                     onClick={() => setFloatingNoteTruck(null)}
-                    className="px-4 py-1.5 rounded-lg bg-slate-900 hover:bg-black text-white text-xs font-bold shadow-xs cursor-pointer"
+                    className="px-4 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium shadow-xs cursor-pointer"
                   >
                     Tutup
                   </button>
@@ -1170,8 +1159,8 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
             ) : (
               /* B. MODE EDIT: PILIH ATAU KETIK ALASAN */
               <div className="mt-3.5 space-y-3">
-                <label className="block text-xs font-bold text-slate-700">
-                  Pilih atau Ketik Alasan / Keterangan:
+                <label className="block text-xs font-medium text-slate-700">
+                  Pilih atau Ketik Alasan:
                 </label>
 
                 {/* Quick Reason Chips */}
@@ -1188,9 +1177,9 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
                       key={reason}
                       type="button"
                       onClick={() => setFloatingNoteText(reason)}
-                      className={`text-[10px] px-2 py-1 rounded-md font-semibold border transition cursor-pointer ${
+                      className={`text-[11px] px-2.5 py-1 rounded-md font-medium border transition cursor-pointer ${
                         floatingNoteText === reason
-                          ? 'bg-red-600 text-white border-red-600 shadow-2xs'
+                          ? 'bg-red-600 text-white border-red-600'
                           : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                       }`}
                     >
@@ -1204,7 +1193,7 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
                   autoFocus
                   value={floatingNoteText}
                   onChange={(e) => setFloatingNoteText(e.target.value)}
-                  placeholder="Contoh: Perbaikan kampas rem di bengkel..."
+                  placeholder="Ketik keterangan alasan..."
                   className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs text-slate-900 focus:border-red-500 focus:outline-hidden"
                 />
 
@@ -1219,17 +1208,16 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
                         setFloatingNoteTruck(null);
                       }
                     }}
-                    className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                    className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 cursor-pointer"
                   >
                     Batal
                   </button>
                   <button
                     type="button"
                     onClick={handleSaveFloatingNote}
-                    className="px-4 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5"
+                    className="px-4 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-medium shadow-xs cursor-pointer"
                   >
-                    <span>Simpan Alasan</span>
-                    <span>✓</span>
+                    Simpan
                   </button>
                 </div>
               </div>
@@ -1246,10 +1234,10 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
           onClick={() => setStatusConfirmTruck(null)}
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl border border-slate-200/90 p-4 w-full max-w-sm animate-in zoom-in-95 duration-150 space-y-3"
+            className="bg-white rounded-xl shadow-xl border border-slate-200 p-4 w-full max-w-sm animate-in zoom-in-95 duration-150 space-y-3"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="text-xs sm:text-sm font-bold text-slate-800">
+            <div className="text-xs sm:text-sm font-medium text-slate-800">
               {(rowStates[statusConfirmTruck.id]?.status || statusConfirmTruck.status) === 'Aktif'
                 ? `Nonaktifkan armada ${rowStates[statusConfirmTruck.id]?.nomorPolisi || statusConfirmTruck.nomorPolisi}?`
                 : `Aktifkan kembali armada ${rowStates[statusConfirmTruck.id]?.nomorPolisi || statusConfirmTruck.nomorPolisi}?`}
@@ -1268,7 +1256,7 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
                 type="button"
                 onClick={handleConfirmToggleStatus}
                 title="Konfirmasi (Enter)"
-                className="w-12 h-9 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white flex items-center justify-center font-black text-base shadow-xs transition cursor-pointer"
+                className="w-12 h-9 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white flex items-center justify-center font-bold text-base shadow-xs transition cursor-pointer"
               >
                 ✓
               </button>
@@ -1284,7 +1272,7 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
           onClick={() => setEditingTruck(null)}
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl border border-slate-200/90 p-2 sm:p-2.5 w-full max-w-3xl animate-in zoom-in-95 duration-150"
+            className="bg-white rounded-xl shadow-xl border border-slate-200 p-2.5 sm:p-3 w-full max-w-2xl animate-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
           >
             <form
@@ -1297,7 +1285,7 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
               {/* Baris 1: Data Armada [ 1 ] [ No. Polisi ] [ Nama Sopir ] [ Kapasitas ] */}
               <div className="flex items-center gap-1.5 sm:gap-2 w-full">
                 {/* Kotak 1: Nomor Urut [ 1 ] */}
-                <div className="shrink-0 w-8 sm:w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center font-mono font-bold text-xs sm:text-sm text-slate-700 select-none">
+                <div className="shrink-0 w-8 sm:w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center font-mono font-medium text-xs sm:text-sm text-slate-700 select-none">
                   {editingRowIndex}
                 </div>
 
@@ -1313,7 +1301,7 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
                     }))
                   }
                   placeholder="No. Polisi"
-                  className="w-28 sm:w-36 h-10 px-2.5 sm:px-3 rounded-xl border border-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 font-mono font-black text-xs sm:text-sm text-slate-900 uppercase transition outline-hidden"
+                  className="w-28 sm:w-36 h-10 px-2.5 sm:px-3 rounded-xl border border-slate-200 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 font-mono font-semibold text-xs sm:text-sm text-slate-900 uppercase transition outline-hidden"
                 />
 
                 {/* Kotak 3: Nama Sopir [ ADUNG TM KRW ] */}
@@ -1327,7 +1315,7 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
                     }))
                   }
                   placeholder="Nama Sopir"
-                  className="flex-1 min-w-[110px] h-10 px-2.5 sm:px-3 rounded-xl border border-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 font-bold text-xs sm:text-sm text-slate-800 uppercase transition outline-hidden"
+                  className="flex-1 min-w-[110px] h-10 px-2.5 sm:px-3 rounded-xl border border-slate-200 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 font-medium text-xs sm:text-sm text-slate-800 uppercase transition outline-hidden"
                 />
 
                 {/* Kotak 4: Kapasitas [ 28 ] */}
@@ -1341,7 +1329,7 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
                     }))
                   }
                   placeholder="KAP"
-                  className="w-12 sm:w-16 h-10 px-1 rounded-xl border border-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 font-mono font-black text-xs sm:text-sm text-center text-slate-900 transition outline-hidden"
+                  className="w-12 sm:w-16 h-10 px-1 rounded-xl border border-slate-200 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 font-mono font-semibold text-xs sm:text-sm text-center text-slate-900 transition outline-hidden"
                 />
               </div>
 
@@ -1361,7 +1349,7 @@ export const TruckInlineTable: React.FC<TruckInlineTableProps> = ({
                 <button
                   type="submit"
                   title="Simpan (Enter)"
-                  className="w-12 sm:w-14 h-9 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white flex items-center justify-center font-black text-base shadow-xs transition cursor-pointer"
+                  className="w-12 sm:w-14 h-9 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white flex items-center justify-center font-bold text-base shadow-xs transition cursor-pointer"
                 >
                   ✓
                 </button>

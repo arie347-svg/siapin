@@ -28,13 +28,13 @@ export const CutOffBanner: React.FC<CutOffBannerProps> = ({
             Cut-Off: 17:00 WIB
           </span>
           <span
-            className={`px-2 py-0.2 rounded-full text-[9px] font-black uppercase tracking-wider ${
+            className={`px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider ${
               isLocked
                 ? 'bg-rose-950 text-rose-300 border border-rose-800/80'
                 : 'bg-emerald-950 text-emerald-300 border border-emerald-800/80'
             }`}
           >
-            {isLocked ? '🔒 Terkunci' : '🔓 Terbuka'}
+            {isLocked ? 'Terkunci' : 'Terbuka'}
           </span>
         </div>
 
@@ -83,9 +83,8 @@ export const CutOffBanner: React.FC<CutOffBannerProps> = ({
 
       {/* Persistent Slim Warning Banner when Locked */}
       {isLocked && (
-        <div className="bg-slate-900/95 border border-slate-800 mt-1 px-3 py-1.5 rounded-lg text-xs text-slate-300 flex items-center justify-between gap-2 shadow-2xs">
+        <div className="bg-slate-900 border border-slate-800 mt-1 px-3 py-1.5 rounded-lg text-xs text-slate-300 flex items-center justify-between gap-2 shadow-2xs">
           <div className="flex items-center gap-2">
-            <span className="text-amber-400 text-xs">🔒</span>
             <span className="text-[11px] text-slate-300">
               Pengisian data terkunci karena melewati batas Cut-Off 17:00 WIB (Mode Hanya Baca).
             </span>

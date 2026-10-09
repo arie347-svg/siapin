@@ -465,8 +465,8 @@ export const AdminAnalyticsReport: React.FC<AdminAnalyticsReportProps> = ({ truc
           
           {/* 1. Rentang Tanggal (Mulai -> Akhir) - 6 Kolom */}
           <div className="md:col-span-6 bg-slate-50 p-2 rounded-xl border border-slate-200/80">
-            <label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">
-              🗓️ Rentang Tanggal
+            <label className="text-[10px] uppercase font-semibold text-slate-500 mb-1 block">
+              Rentang Tanggal
             </label>
             <div className="flex items-center gap-2">
               <input
@@ -477,7 +477,7 @@ export const AdminAnalyticsReport: React.FC<AdminAnalyticsReportProps> = ({ truc
                   setStartDate(e.target.value);
                   setDownloadReady(null);
                 }}
-                className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 focus:outline-hidden focus:border-red-500 transition cursor-pointer shadow-2xs"
+                className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-medium text-slate-800 focus:outline-hidden focus:border-red-500 transition cursor-pointer shadow-2xs"
               />
               <span className="text-slate-400 font-bold text-xs shrink-0">→</span>
               <input
@@ -489,15 +489,15 @@ export const AdminAnalyticsReport: React.FC<AdminAnalyticsReportProps> = ({ truc
                   setEndDate(e.target.value);
                   setDownloadReady(null);
                 }}
-                className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 focus:outline-hidden focus:border-red-500 transition cursor-pointer shadow-2xs"
+                className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-medium text-slate-800 focus:outline-hidden focus:border-red-500 transition cursor-pointer shadow-2xs"
               />
             </div>
           </div>
 
           {/* 2. Dropdown Transporter - 3 Kolom */}
           <div className="md:col-span-3">
-            <label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">
-              🚚 Transporter
+            <label className="text-[10px] uppercase font-semibold text-slate-500 mb-1 block">
+              Transporter
             </label>
             <select
               value={selectedTransporter}
@@ -505,7 +505,7 @@ export const AdminAnalyticsReport: React.FC<AdminAnalyticsReportProps> = ({ truc
                 setSelectedTransporter(e.target.value);
                 setDownloadReady(null);
               }}
-              className="w-full bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded-xl px-2.5 py-2 text-xs font-bold text-slate-800 focus:outline-hidden focus:border-red-500 transition cursor-pointer shadow-2xs"
+              className="w-full bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded-xl px-2.5 py-2 text-xs font-medium text-slate-800 focus:outline-hidden focus:border-red-500 transition cursor-pointer shadow-2xs"
             >
               <option value="ALL">Semua Transporter</option>
               <option value="TM">TM - PT Tunas Muda</option>
@@ -517,8 +517,8 @@ export const AdminAnalyticsReport: React.FC<AdminAnalyticsReportProps> = ({ truc
 
           {/* 3. Dropdown Gudang - 3 Kolom */}
           <div className="md:col-span-3">
-            <label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">
-              📍 Gudang (Depo)
+            <label className="text-[10px] uppercase font-semibold text-slate-500 mb-1 block">
+              Gudang (Depo)
             </label>
             <select
               value={selectedDepo}

@@ -461,11 +461,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   <button
                     type="button"
                     onClick={handleResetConnectedAccount}
-                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-[#E50914] transition cursor-pointer underline underline-offset-2 hover:no-underline"
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400 hover:text-red-600 transition cursor-pointer underline underline-offset-2 hover:no-underline"
                     title="Hapus keterhubungan akun transporter di HP ini"
                   >
-                    <span>🔄</span>
-                    <span>Reset Akun Terhubung</span>
+                    Reset Akun Terhubung
                   </button>
                 </div>
               )}
@@ -516,9 +515,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     setAdminPassword('');
                     setAuthMode('admin');
                   }}
-                  className="inline-flex items-center gap-1.5 text-xs font-extrabold text-slate-700 hover:text-[#E50914] transition cursor-pointer py-1.5 px-3 rounded-lg hover:bg-slate-100"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-red-600 transition cursor-pointer py-1.5 px-3 rounded-lg hover:bg-slate-100"
                 >
-                  <span className="text-sm">🛡️</span>
                   <span>Akses Admin</span>
                   <span>&gt;</span>
                 </button>
@@ -537,11 +535,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 
                 {/* Header Kartu Admin */}
                 <div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center text-[11px]">
-                      🛡️
-                    </div>
-                    <h3 className="text-base font-black text-slate-900 tracking-tight">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-slate-900 tracking-tight">
                       Login Admin
                     </h3>
                   </div>
@@ -551,9 +546,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 </div>
 
                 {adminError && (
-                  <div className="p-2 sm:p-2.5 bg-red-50 border border-red-200 rounded-lg text-red-700 text-xs font-semibold flex items-center gap-2">
-                    <span>⚠️</span>
-                    <span>{adminError}</span>
+                  <div className="p-2 sm:p-2.5 bg-red-50 border border-red-200 rounded-lg text-red-700 text-xs font-medium">
+                    {adminError}
                   </div>
                 )}
 
@@ -654,15 +648,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   <div className="flex-grow border-t border-slate-200" />
                 </div>
 
-                {/* Link Kembali ke Login Pengguna (SATU-SATUNYA TOMBOL KEMBALI) */}
+                {/* Link Kembali ke Login Pengguna */}
                 <div className="text-center">
                   <button
                     type="button"
                     onClick={() => setAuthMode('welcome')}
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 transition cursor-pointer"
+                    className="inline-flex items-center text-xs font-semibold text-slate-600 hover:text-slate-900 transition cursor-pointer"
                   >
-                    <span>🛡️</span>
-                    <span>Kembali ke Login Pengguna</span>
+                    Kembali ke Login Pengguna
                   </button>
                 </div>
 
@@ -887,8 +880,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             ) : registeredTransporter && registeredTransporter.role === 'transporter' ? (
               /* State: SUDAH TERHUBUNG DENGAN GOOGLE (EMAIL HASIL SIGN UP) */
               <div className="space-y-3.5">
-                <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 mx-auto flex items-center justify-center shadow-xs border border-emerald-200 text-xl font-bold">
-                  ✓
+                <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 mx-auto flex items-center justify-center border border-emerald-200">
+                  <svg className="w-6 h-6 stroke-current fill-none" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+                  </svg>
                 </div>
 
                 <div>
@@ -930,8 +925,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             ) : (
               /* State: BELUM TERHUBUNG (BELUM PERNAH DAFTAR SIGN UP TRANSPORTER) */
               <div className="space-y-3.5">
-                <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 mx-auto flex items-center justify-center shadow-xs border border-amber-200 text-2xl font-bold">
-                  ⚠️
+                <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 mx-auto flex items-center justify-center border border-amber-200">
+                  <svg className="w-6 h-6 stroke-current fill-none" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
                 </div>
 
                 <div>
